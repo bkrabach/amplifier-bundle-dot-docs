@@ -469,8 +469,8 @@ class TestSynthesisRecipe:
         assert step4.get("id") == "quality-review", (
             f"Step 4 id is '{step4.get('id')}', expected 'quality-review'"
         )
-        assert step4.get("type") == "prompt", (
-            f"Step 4 type is '{step4.get('type')}', expected 'prompt'"
+        assert step4.get("type") == "agent", (
+            f"Step 4 type is '{step4.get('type')}', expected 'agent'"
         )
 
     def test_step4_review_output_key(self, recipe_data: dict) -> None:
@@ -490,8 +490,8 @@ class TestSynthesisRecipe:
         assert step5.get("id") == "fix-if-failed", (
             f"Step 5 id is '{step5.get('id')}', expected 'fix-if-failed'"
         )
-        assert step5.get("type") == "prompt", (
-            f"Step 5 type is '{step5.get('type')}', expected 'prompt'"
+        assert step5.get("type") == "agent", (
+            f"Step 5 type is '{step5.get('type')}', expected 'agent'"
         )
 
     def test_step5_references_review_verdict(self, recipe_data: dict) -> None:
@@ -533,9 +533,9 @@ class TestSynthesisRecipe:
             f"Step 6 output is '{output}', expected 'validation_result'"
         )
 
-    def test_recipe_final_output(self, recipe_data: dict) -> None:
-        assert recipe_data.get("final_output") == "synthesis_summary", (
-            f"Recipe final_output is '{recipe_data.get('final_output')}', expected 'synthesis_summary'"
+    def test_recipe_no_final_output(self, recipe_data: dict) -> None:
+        assert "final_output" not in recipe_data, (
+            "Recipe must not have top-level 'final_output' key (unknown/invalid key)"
         )
 
 

@@ -90,4 +90,3 @@ steps:
     parse_json: true
     timeout: 60
 
-final_output: "prescan_result"

@@ -372,7 +372,7 @@ stages:
         as: "repo_entry"
         condition: "{{repo_entry.tier}} == 3"
         collect: "analysis_results"
-        type: "prompt"
+        type: "agent"
         output: "tier3_analysis"
         timeout: 600
         prompt: |
@@ -514,6 +514,7 @@ stages:
       # ------------------------------------------------------------------------
       - id: "final-summary"
         type: "bash"
+        on_error: continue
         command: |
           python3 << 'EOF'
           import json
@@ -543,4 +544,3 @@ stages:
         output: "discovery_complete"
         timeout: 30
 
-final_output: "discovery_complete"

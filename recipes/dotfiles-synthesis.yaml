@@ -91,7 +91,7 @@ steps:
   # workspace and produces overview.dot (mandatory) and detail files.
   # --------------------------------------------------------------------------
   - id: "synthesize"
-    type: "prompt"
+    type: "agent"
     prompt: |
       You are synthesizing DOT graph documentation for the repository at: {{repo_path}}
 
@@ -114,7 +114,7 @@ steps:
   # the previous fix-if-failed iteration.
   # --------------------------------------------------------------------------
   - id: "quality-review"
-    type: "prompt"
+    type: "agent"
     prompt: |
       You are a DOT graph quality reviewer. Review all .dot files produced in the
       output directory: {{output_dir}}
@@ -147,7 +147,7 @@ steps:
   # the synthesis agent for targeted corrections. Loops up to 3 times.
   # --------------------------------------------------------------------------
   - id: "fix-if-failed"
-    type: "prompt"
+    type: "agent"
     condition: "'FAIL' in '{{review_verdict}}'"
     max_iterations: 3
     prompt: |
@@ -246,4 +246,3 @@ steps:
     output: "validation_result"
     timeout: 120
 
-final_output: "synthesis_summary"

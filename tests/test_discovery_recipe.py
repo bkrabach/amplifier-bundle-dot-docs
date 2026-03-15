@@ -515,9 +515,9 @@ class TestDiscoveryRecipeFinalOutput:
         content = (BUNDLE_ROOT / "recipes" / "dotfiles-discovery.yaml").read_text()
         return yaml.safe_load(content)
 
-    def test_final_output_discovery_complete(self, recipe_data: dict) -> None:
-        assert recipe_data.get("final_output") == "discovery_complete", (
-            f"final_output is '{recipe_data.get('final_output')}', expected 'discovery_complete'"
+    def test_no_final_output_key(self, recipe_data: dict) -> None:
+        assert "final_output" not in recipe_data, (
+            "Recipe must not have top-level 'final_output' key (unknown/invalid key)"
         )
 
 
