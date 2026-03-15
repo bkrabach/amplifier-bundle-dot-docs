@@ -415,6 +415,7 @@ stages:
       # ------------------------------------------------------------------------
       - id: "write-metadata"
         type: "bash"
+        on_error: fail
         command: |
           python3 << 'EOF'
           import json
