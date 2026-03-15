@@ -1,0 +1,93 @@
+name: "dotfiles-prescan"
+description: "Pre-scan a repository to select investigation topics before full discovery."
+version: "0.1.0"
+tags: [dotfiles, prescan, discovery]
+
+# Pre-scan Recipe
+#
+# Examines a single repository and returns a prioritised list of topics
+# for the subsequent Parallax Discovery investigation.  The pre-scan is
+# lightweight — it does NOT run agents or LLMs; it inspects the repository
+# structure and produces a topic list that the outer discovery recipe
+# can pass to the synthesis step.
+#
+# Context inputs:
+#   repo_path — absolute path to the repository on disk
+#
+# Outputs:
+#   prescan_result — JSON object with:
+#     {
+#       "repo":   "<repo-name>",
+#       "topics": ["<topic-1>", ...],
+#       "status": "ok" | "error",
+#       "error":  "<message>"   (only when status == "error")
+#     }
+#
+# # TODO: Replace the heuristic topic detection below with a richer
+# analysis step once an agent-driven topic selection prompt is written.
+# The agent should read README, CHANGELOG, and module structure to produce
+# semantically meaningful topics rather than directory-name heuristics.
+
+steps:
+  - id: "detect-topics"
+    type: "bash"
+    command: |
+      python3 << 'EOF'
+      import json
+      import os
+      import sys
+      from pathlib import Path
+
+      repo_path = Path("{{repo_path}}")
+
+      if not repo_path.exists():
+          print(json.dumps({
+              "repo": repo_path.name,
+              "topics": [],
+              "status": "error",
+              "error": f"Repository not found: {repo_path}",
+          }))
+          sys.exit(0)
+
+      # Heuristic: treat top-level Python packages and key directories as topics
+      topics = []
+
+      # Source packages (Python)
+      for candidate in ["src", "lib", "pkg"]:
+          src_dir = repo_path / candidate
+          if src_dir.is_dir():
+              for pkg in sorted(src_dir.iterdir()):
+                  if pkg.is_dir() and (pkg / "__init__.py").exists():
+                      topics.append(pkg.name)
+
+      # Top-level packages
+      for pkg in sorted(repo_path.iterdir()):
+          if (
+              pkg.is_dir()
+              and (pkg / "__init__.py").exists()
+              and pkg.name not in topics
+              and not pkg.name.startswith(".")
+          ):
+              topics.append(pkg.name)
+
+      # Fallback: use notable top-level directories
+      if not topics:
+          notable = {"core", "api", "server", "client", "cli", "services", "handlers"}
+          for d in sorted(repo_path.iterdir()):
+              if d.is_dir() and d.name in notable:
+                  topics.append(d.name)
+
+      # Cap to 5 topics to keep discovery focused
+      topics = topics[:5]
+
+      print(json.dumps({
+          "repo": repo_path.name,
+          "topics": topics,
+          "status": "ok",
+      }))
+      EOF
+    output: "prescan_result"
+    parse_json: true
+    timeout: 60
+
+final_output: "prescan_result"

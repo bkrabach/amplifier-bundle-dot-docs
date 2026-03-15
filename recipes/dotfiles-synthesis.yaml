@@ -1,0 +1,249 @@
+name: "dotfiles-synthesis"
+description: "Synthesize raw DOT investigation output into final overview.dot and detail files."
+version: "0.1.0"
+tags: [dotfiles, synthesis, dot-generation]
+
+# Synthesis Recipe
+#
+# Takes the raw DOT files produced by investigation agents and synthesizes them into
+# polished, canonical DOT graph documentation for a repository.
+#
+# Steps:
+#   1. inventory-dots    — list all .dot and reconciliation.md files in investigation_dir
+#   2. prepare-output    — create output_dir and output_dir/.discovery
+#   3. synthesize        — synthesis agent produces overview.dot and optional detail files
+#   4. quality-review    — reviewer agent evaluates all .dot files; reports PASS/WARN/FAIL verdict
+#   5. fix-if-failed     — if verdict is FAIL, feed reviewer feedback back to synthesis agent
+#   6. validate-output   — validate all produced DOT files meet quality standards
+#
+# Usage:
+#   amplifier recipes execute dotfiles-synthesis.yaml \
+#     --context '{
+#       "investigation_dir": "/path/to/.investigation",
+#       "repo_path": "/path/to/repo",
+#       "output_dir": "/path/to/output",
+#       "topics": ["module_architecture", "execution_flows"]
+#     }'
+#
+# Output:
+#   synthesis_summary — summary of DOT files produced by the synthesis agent
+#
+# Requirements:
+#   - dot-docs bundle loaded (provides context/synthesis-prompt.md)
+#   - dotfiles_discovery package available (provides dot_validation)
+#   - Read access to investigation_dir and repo_path
+#   - Write access to output_dir
+
+context:
+  investigation_dir: ""  # required — path to investigation workspace containing raw .dot files
+  repo_path: ""          # required — absolute path to the repository being documented
+  output_dir: ""         # required — where to write overview.dot and detail files
+  topics: []             # required — list of topics investigated (e.g. ["module_architecture"])
+
+steps:
+  # --------------------------------------------------------------------------
+  # Step 1: Inventory raw DOT files
+  # Lists all .dot files and reconciliation.md files in the investigation
+  # workspace so the synthesis agent knows exactly what to read.
+  # --------------------------------------------------------------------------
+  - id: "inventory-dots"
+    type: "bash"
+    command: |
+      set -euo pipefail
+      INV="{{investigation_dir}}"
+
+      echo "=== INVESTIGATION DIRECTORY STRUCTURE ==="
+      find "$INV" -not \( -name '__pycache__' -prune \) | sort
+
+      echo ""
+      echo "=== RAW DOT FILES ==="
+      find "$INV" -name "*.dot" | sort
+
+      echo ""
+      echo "=== RECONCILIATION FILES ==="
+      find "$INV" -name "reconciliation.md" | sort
+
+      echo ""
+      echo "=== DOT FILE COUNT ==="
+      find "$INV" -name "*.dot" | wc -l
+    output: "dot_inventory"
+    timeout: 60
+
+  # --------------------------------------------------------------------------
+  # Step 2: Prepare output directory
+  # Creates the output directory and the .discovery metadata subdirectory
+  # before the synthesis agent writes its files.
+  # --------------------------------------------------------------------------
+  - id: "prepare-output"
+    type: "bash"
+    command: |
+      set -euo pipefail
+      mkdir -p "{{output_dir}}"
+      mkdir -p "{{output_dir}}/.discovery"
+      echo "Output directory ready: {{output_dir}}"
+      echo "Discovery metadata directory ready: {{output_dir}}/.discovery"
+    output: "output_ready"
+    timeout: 30
+
+  # --------------------------------------------------------------------------
+  # Step 3: Synthesize DOT files
+  # The synthesis agent reads all raw DOT files from the investigation
+  # workspace and produces overview.dot (mandatory) and detail files.
+  # --------------------------------------------------------------------------
+  - id: "synthesize"
+    type: "prompt"
+    prompt: |
+      You are synthesizing DOT graph documentation for the repository at: {{repo_path}}
+
+      Investigation workspace: {{investigation_dir}}
+      Output directory: {{output_dir}}
+      Topics investigated: {{topics}}
+
+      Inventory of files available for synthesis:
+      {{dot_inventory}}
+
+      @dot-docs:context/synthesis-prompt.md
+    output: "synthesis_summary"
+    timeout: 1800
+
+  # --------------------------------------------------------------------------
+  # Step 4: Quality review
+  # Reviewer agent evaluates all produced .dot files for syntax, structure,
+  # quality, style, and reconciliation value. Reports a PASS/WARN/FAIL
+  # verdict with detailed feedback. On re-reviews, uses review_feedback from
+  # the previous fix-if-failed iteration.
+  # --------------------------------------------------------------------------
+  - id: "quality-review"
+    type: "prompt"
+    prompt: |
+      You are a DOT graph quality reviewer. Review all .dot files produced in the
+      output directory: {{output_dir}}
+
+      Evaluate each file across five dimensions:
+      1. Syntax — valid DOT syntax, parses without errors
+      2. Structure — proper clusters, connected nodes, no orphans, no isolated clusters
+      3. Quality — line counts within spec, node count ≤ 80, no splines=ortho
+      4. Style — rendered legend present, red for known issues, consistent labeling
+      5. Reconciliation — diagram surfaces real system problems, not just documentation
+
+      {% if review_feedback %}
+      Previous reviewer feedback to verify was addressed:
+      {{review_feedback}}
+      {% endif %}
+
+      Report your verdict as one of: PASS, WARN, or FAIL.
+      - PASS: all files meet standards, no blocking issues
+      - WARN: minor issues present but not blocking
+      - FAIL: blocking issues found that must be corrected before acceptance
+
+      Begin your response with: VERDICT: <PASS|WARN|FAIL>
+      Then provide detailed findings for each file.
+    output: "review_verdict"
+    timeout: 600
+
+  # --------------------------------------------------------------------------
+  # Step 5: Fix if failed
+  # If the quality reviewer reported FAIL, feed the detailed feedback back to
+  # the synthesis agent for targeted corrections. Loops up to 3 times.
+  # --------------------------------------------------------------------------
+  - id: "fix-if-failed"
+    type: "prompt"
+    condition: "'FAIL' in '{{review_verdict}}'"
+    max_iterations: 3
+    prompt: |
+      The quality reviewer has identified blocking issues with the DOT files you
+      produced. Please make targeted corrections to address the feedback below.
+
+      Output directory: {{output_dir}}
+      Repository: {{repo_path}}
+
+      REVIEWER FEEDBACK:
+      {{review_verdict}}
+
+      Read the current .dot files, address every blocking issue identified above,
+      and overwrite the corrected files in place.
+
+      @dot-docs:context/synthesis-prompt.md
+    output: "review_feedback"
+    timeout: 1200
+
+  # --------------------------------------------------------------------------
+  # Step 6: Validate output
+  # Runs the dot_validation utilities against every .dot file produced by the
+  # synthesis agent. Fails if overview.dot is missing or fails any check.
+  # --------------------------------------------------------------------------
+  - id: "validate-output"
+    type: "bash"
+    command: |
+      set -euo pipefail
+      python3 - <<'PYEOF'
+      import sys
+      from pathlib import Path
+      from dotfiles_discovery.dot_validation import validate_dot_file, validate_with_dot_graph
+
+      output_dir = Path("{{output_dir}}")
+      overview = output_dir / "overview.dot"
+
+      errors = []
+      warnings = []
+
+      # --- Validate overview.dot (mandatory) using enhanced dot_graph validation ---
+      if not overview.exists():
+          errors.append("MISSING: overview.dot was not produced")
+      else:
+          enhanced = validate_with_dot_graph(str(overview))
+          result = enhanced.basic
+          if not result.valid_syntax:
+              errors.append(f"SYNTAX ERROR in overview.dot: {result.syntax_error}")
+          if not result.line_count_in_range:
+              warnings.append(
+                  f"LINE COUNT out of range for overview.dot: {result.line_count} lines "
+                  f"(expected 150-250)"
+              )
+          if not result.render_ok:
+              errors.append("RENDER FAILED for overview.dot")
+          if enhanced.structural_issues:
+              for issue in enhanced.structural_issues:
+                  warnings.append(f"STRUCTURAL: {issue}")
+          if enhanced.quality_warnings:
+              for qw in enhanced.quality_warnings:
+                  warnings.append(f"QUALITY: {qw}")
+          dot_graph_available = enhanced.dot_graph_available
+          print(f"dot_graph available: {dot_graph_available}")
+          print(f"overview.dot: {result.line_count} lines, syntax={result.valid_syntax}, "
+                f"render={result.render_ok}")
+
+      # --- Validate any detail files ---
+      detail_names = [
+          "architecture.dot",
+          "sequence.dot",
+          "state-machines.dot",
+          "integration.dot",
+      ]
+      for name in detail_names:
+          detail = output_dir / name
+          if not detail.exists():
+              continue  # optional, skip if not produced
+          result = validate_dot_file(str(detail))
+          if not result.valid_syntax:
+              errors.append(f"SYNTAX ERROR in {name}: {result.syntax_error}")
+          if not result.render_ok:
+              errors.append(f"RENDER FAILED for {name}")
+          print(f"{name}: {result.line_count} lines, syntax={result.valid_syntax}, "
+                f"render={result.render_ok}")
+
+      # --- Report ---
+      if warnings:
+          for w in warnings:
+              print(f"WARNING: {w}")
+      if errors:
+          for e in errors:
+              print(f"ERROR: {e}")
+          sys.exit(1)
+      else:
+          print("VALIDATION PASSED: all produced DOT files meet quality standards")
+      PYEOF
+    output: "validation_result"
+    timeout: 120
+
+final_output: "synthesis_summary"

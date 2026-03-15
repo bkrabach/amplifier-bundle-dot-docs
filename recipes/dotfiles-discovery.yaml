@@ -1,0 +1,546 @@
+name: "dotfiles-discovery"
+description: "Orchestrate tier-based DOT graph discovery across all repos in a dotfiles profile."
+version: "0.1.0"
+tags: [dotfiles, discovery, orchestration]
+
+# Discovery Orchestrator Recipe
+#
+# Outer-loop entry point for the dotfiles DOT documentation pipeline.
+# Reads a person's profile, determines the investigation tier for each repo
+# (based on git history since last run), dispatches investigations, runs
+# synthesis, and writes metadata.
+#
+# Tiers:
+#   -1 — SKIP (repo not found on disk)
+#    0 — SKIP (no changes since last discovery)
+#    1 — FULL  (full Parallax Discovery — no prior run)
+#    2 — WAVE  (single-wave investigation — structural changes)
+#    3 — PATCH (targeted investigation — minor changes)
+#
+# Usage:
+#   amplifier recipes execute dotfiles-discovery.yaml \
+#     --context '{
+#       "profile_path": "/path/to/profile.yaml",
+#       "dotfiles_root": "/path/to/dotfiles/output",
+#       "repos_root": "/path/to/repos"
+#     }'
+#
+# Requirements:
+#   - dot-docs bundle loaded
+#   - dotfiles_discovery package available (structural_change, discovery_metadata)
+#   - Read access to profile_path and repos_root
+#   - Write access to dotfiles_root
+
+recursion:
+  max_depth: 3
+  max_total_steps: 100
+
+context:
+  profile_path: ""   # required — absolute path to the YAML profile describing repos
+  dotfiles_root: ""  # required — root directory for DOT documentation output
+  repos_root: ""     # required — directory containing cloned repositories
+
+stages:
+  # ==========================================================================
+  # STAGE 1: Setup — read profile, determine tiers, display plan
+  # ==========================================================================
+  - name: "setup"
+    steps:
+      # ------------------------------------------------------------------------
+      # Step 1: Read the profile YAML and extract the repos list + github_handle
+      # ------------------------------------------------------------------------
+      - id: "read-profile"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+          import sys
+          from pathlib import Path
+
+          try:
+              import yaml
+          except ImportError:
+              import subprocess
+              subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=True)
+              import yaml
+
+          profile_path = "{{profile_path}}"
+          path = Path(profile_path)
+
+          if not path.exists():
+              print(json.dumps({"error": f"Profile not found: {profile_path}"}))
+              sys.exit(1)
+
+          with open(path) as f:
+              profile = yaml.safe_load(f)
+
+          repos = profile.get("repos", [])
+          github_handle = profile.get("github_handle", "")
+
+          print(json.dumps({
+              "repos": repos,
+              "github_handle": github_handle,
+              "repo_count": len(repos),
+          }))
+          EOF
+        output: "profile"
+        parse_json: true
+        timeout: 30
+
+      # ------------------------------------------------------------------------
+      # Step 2: Determine investigation tier for each repo
+      # Checks each repo for changes since last discovery run
+      # ------------------------------------------------------------------------
+      - id: "determine-tiers"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
+
+          try:
+              from dotfiles_discovery.structural_change import detect_changes
+              from dotfiles_discovery.discovery_metadata import read_last_run, get_force_tier
+          except ImportError:
+              # Try finding tools relative to the working directory
+              import os
+              tools_candidates = [
+                  Path(os.getcwd()) / "dot-docs" / "tools",
+              ]
+              for candidate in tools_candidates:
+                  if candidate.exists():
+                      sys.path.insert(0, str(candidate))
+                      break
+
+              from dotfiles_discovery.structural_change import detect_changes
+              from dotfiles_discovery.discovery_metadata import read_last_run, get_force_tier
+
+          dotfiles_root = Path("{{dotfiles_root}}")
+          repos_root = Path("{{repos_root}}")
+
+          # Profile was parsed in prior step
+          profile_data = json.loads('{{profile}}')
+          repos = profile_data.get("repos", [])
+
+          tier_plan = []
+
+          for repo_entry in repos:
+              # repo_entry may be a string or a dict with 'name' and optional fields
+              if isinstance(repo_entry, str):
+                  repo_name = repo_entry
+                  repo_config = {}
+              else:
+                  repo_name = repo_entry.get("name", str(repo_entry))
+                  repo_config = repo_entry
+
+              repo_path = repos_root / repo_name
+              output_dir = str(dotfiles_root / repo_name)
+              discovery_dir = Path(output_dir) / ".discovery"
+
+              # Repo not found on disk
+              if not repo_path.exists():
+                  tier_plan.append({
+                      "repo": repo_name,
+                      "tier": -1,
+                      "reason": f"Repository not found: {repo_path}",
+                      "repo_path": str(repo_path),
+                      "output_dir": output_dir,
+                      "current_commit": None,
+                  })
+                  continue
+
+              # Check for force_tier override
+              forced = get_force_tier(discovery_dir)
+              if forced is not None:
+                  import subprocess
+                  result = subprocess.run(
+                      ["git", "rev-parse", "HEAD"],
+                      cwd=repo_path,
+                      capture_output=True,
+                      text=True,
+                  )
+                  current_commit = result.stdout.strip() if result.returncode == 0 else None
+                  tier_plan.append({
+                      "repo": repo_name,
+                      "tier": forced,
+                      "reason": f"force_tier override: {forced}",
+                      "repo_path": str(repo_path),
+                      "output_dir": output_dir,
+                      "current_commit": current_commit,
+                  })
+                  continue
+
+              # Read last run to get previous commit hash
+              last_run = read_last_run(discovery_dir)
+              last_commit = last_run.commit_hash if last_run else None
+
+              # Run change detection
+              result = detect_changes(repo_path, last_commit)
+
+              tier_plan.append({
+                  "repo": repo_name,
+                  "tier": result.tier,
+                  "reason": result.reason,
+                  "repo_path": str(repo_path),
+                  "output_dir": output_dir,
+                  "current_commit": result.current_commit,
+              })
+
+          print(json.dumps(tier_plan))
+          EOF
+        output: "tier_plan"
+        parse_json: true
+        timeout: 120
+
+      # ------------------------------------------------------------------------
+      # Step 3: Display the tier plan as a readable table
+      # ------------------------------------------------------------------------
+      - id: "display-plan"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+
+          TIER_LABELS = {
+              -1: "SKIP (not found)",
+               0: "SKIP (unchanged)",
+               1: "FULL",
+               2: "WAVE",
+               3: "PATCH",
+          }
+
+          tier_plan = json.loads('{{tier_plan}}')
+
+          col_repo  = max(len("Repository"), max((len(r["repo"]) for r in tier_plan), default=0))
+          col_tier  = max(len("Tier"), max((len(TIER_LABELS.get(r["tier"], str(r["tier"]))) for r in tier_plan), default=0))
+          col_reason = max(len("Reason"), max((len(r["reason"]) for r in tier_plan), default=0))
+
+          sep = f"+{'-'*(col_repo+2)}+{'-'*(col_tier+2)}+{'-'*(col_reason+2)}+"
+          header = f"| {'Repository':<{col_repo}} | {'Tier':<{col_tier}} | {'Reason':<{col_reason}} |"
+
+          lines = [
+              "",
+              "=== DISCOVERY TIER PLAN ===",
+              "",
+              sep,
+              header,
+              sep,
+          ]
+
+          full_count  = sum(1 for r in tier_plan if r["tier"] == 1)
+          wave_count  = sum(1 for r in tier_plan if r["tier"] == 2)
+          patch_count = sum(1 for r in tier_plan if r["tier"] == 3)
+          skip_count  = sum(1 for r in tier_plan if r["tier"] <= 0)
+
+          for r in tier_plan:
+              label = TIER_LABELS.get(r["tier"], str(r["tier"]))
+              row = f"| {r['repo']:<{col_repo}} | {label:<{col_tier}} | {r['reason']:<{col_reason}} |"
+              lines.append(row)
+
+          lines += [
+              sep,
+              "",
+              f"Total repos : {len(tier_plan)}",
+              f"  FULL  (Tier 1): {full_count}",
+              f"  WAVE  (Tier 2): {wave_count}",
+              f"  PATCH (Tier 3): {patch_count}",
+              f"  SKIP          : {skip_count}",
+              "",
+              "Tier key:",
+              "  FULL  — Full Parallax Discovery (no prior run or forced)",
+              "  WAVE  — Single-wave investigation (structural changes detected)",
+              "  PATCH — Targeted investigation (minor source changes)",
+              "  SKIP  — No changes since last run, or repo not found",
+          ]
+
+          output = "\n".join(lines)
+          print(output)
+          EOF
+        output: "plan_display"
+        timeout: 30
+
+  # ==========================================================================
+  # STAGE 2: Investigation — log intent, run pre-scans
+  # ==========================================================================
+  - name: "investigation"
+    steps:
+      # ------------------------------------------------------------------------
+      # Step 1: Log investigation intent for each repo by tier
+      # ------------------------------------------------------------------------
+      - id: "process-repos"
+        foreach: "{{tier_plan}}"
+        as: "repo_entry"
+        collect: "processing_results"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+
+          entry = json.loads('{{repo_entry}}')
+          repo  = entry["repo"]
+          tier  = entry["tier"]
+          reason = entry["reason"]
+
+          if tier == 1:
+              intent = "FULL Parallax Discovery — all waves, all topics"
+          elif tier == 2:
+              intent = "WAVE investigation — single structural wave"
+          elif tier == 3:
+              intent = "PATCH investigation — targeted topic sweep"
+          elif tier == 0:
+              intent = "SKIP — no changes since last discovery"
+          else:
+              intent = "SKIP — repository not found on disk"
+
+          print(f"[{repo}] Tier {tier}: {intent}")
+          print(f"  Reason: {reason}")
+          print(json.dumps({"repo": repo, "tier": tier, "intent": intent}))
+          EOF
+        timeout: 600
+
+      # ------------------------------------------------------------------------
+      # Step 2: Run pre-scan for repos at Tier 1 or Tier 2
+      # Selects investigation topics before dispatching full discovery
+      # ------------------------------------------------------------------------
+      - id: "prescan-repos"
+        foreach: "{{tier_plan}}"
+        as: "repo_entry"
+        condition: "{{repo_entry.tier}} >= 1 and {{repo_entry.tier}} <= 2"
+        collect: "prescan_results"
+        type: "recipe"
+        recipe: "@dot-docs:recipes/dotfiles-prescan.yaml"
+        context:
+          repo_path: "{{repo_entry.repo_path}}"
+        timeout: 600
+
+    approval:
+      required: true
+      prompt: |
+        ## Discovery Plan — Ready for Synthesis
+
+        The following tier plan was computed from your profile and git history:
+
+        ```
+        {{plan_display}}
+        ```
+
+        **Pre-scan results:**
+
+        ```
+        {{prescan_results}}
+        ```
+
+        **Synthesis will run for all FULL, WAVE, and PATCH repos.**
+        SKIP repos will be left unchanged.
+
+        **Approve** to proceed with synthesis.
+        **Deny** to cancel and review the plan and pre-scan results.
+      timeout: 0
+      default: "deny"
+
+  # ==========================================================================
+  # STAGE 3: Synthesis — synthesize output, write metadata, display summary
+  # ==========================================================================
+  - name: "synthesis"
+    steps:
+      # ------------------------------------------------------------------------
+      # Step 1: Run synthesis for each active repo (Tier >= 1)
+      # ------------------------------------------------------------------------
+      - id: "run-synthesis"
+        foreach: "{{tier_plan}}"
+        as: "repo_entry"
+        condition: "{{repo_entry.tier}} >= 1"
+        collect: "synthesis_results"
+        type: "recipe"
+        recipe: "@dot-docs:recipes/dotfiles-synthesis.yaml"
+        context:
+          investigation_dir: "{{repo_entry.output_dir}}/.investigation"
+          repo_path: "{{repo_entry.repo_path}}"
+          output_dir: "{{repo_entry.output_dir}}"
+          topics: "{{repo_entry.topics}}"
+        timeout: 3600
+
+      # ------------------------------------------------------------------------
+      # Step 2: Run Tier 3 analysis checks (orphan, cycle, diff)
+      # For PATCH repos — lightweight graph quality checks before writing metadata
+      # ------------------------------------------------------------------------
+      - id: "tier3-analysis"
+        foreach: "{{tier_plan}}"
+        as: "repo_entry"
+        condition: "{{repo_entry.tier}} == 3"
+        collect: "analysis_results"
+        type: "prompt"
+        output: "tier3_analysis"
+        timeout: 600
+        prompt: |
+          You are performing post-synthesis quality checks for a Tier 3 (PATCH) repository.
+
+          Repository: {{repo_entry.repo}}
+          Output directory: {{repo_entry.output_dir}}
+
+          Run the following three checks using the dot_graph tool. If the tool is unavailable,
+          fall back to manual inspection of the DOT files and note this in your report.
+
+          ## Check 1: Orphan Node Check
+          Use dot_graph(operation='analyze', options={'type': 'unreachable'}) on the
+          overview.dot file in {{repo_entry.output_dir}}. An orphan or unreachable node
+          indicates a component that is not connected to the rest of the graph.
+
+          ## Check 2: Cycle Detection
+          Use dot_graph(operation='analyze', options={'type': 'cycles'}) on the
+          overview.dot file in {{repo_entry.output_dir}}. Cycles in a dependency graph
+          may indicate circular dependencies that should be flagged.
+
+          ## Check 3: Diff Against Prior Overview
+          If a prior overview.dot exists (e.g., in {{repo_entry.output_dir}}/.discovery/),
+          use dot_graph(operation='analyze', options={'type': 'diff'}) comparing the old
+          vs new overview.dot to highlight structural changes since the last discovery run.
+          If no prior overview.dot exists, skip this check and note it.
+
+          ## Reporting
+          After completing all checks (or falling back to manual inspection if unavailable),
+          report a single verdict:
+          - **CLEAN** — no issues found
+          - **WARN** — minor issues found (e.g., isolated nodes, small cycles in known areas)
+          - **FAIL** — critical issues found (e.g., large unreachable subgraphs, unexpected cycles)
+
+          Include a brief summary of findings for each check and the overall verdict.
+
+      # ------------------------------------------------------------------------
+      # Step 3: Write discovery metadata for each processed repo
+      # Records last-run.json and manifest.json in each repo's .discovery dir
+      # ------------------------------------------------------------------------
+      - id: "write-metadata"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+          import sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          try:
+              from dotfiles_discovery.discovery_metadata import (
+                  LastRunMetadata,
+                  ManifestMetadata,
+                  write_last_run,
+                  write_manifest,
+              )
+          except ImportError:
+              import os
+              tools_candidates = [
+                  Path(os.getcwd()) / "dot-docs" / "tools",
+              ]
+              for candidate in tools_candidates:
+                  if candidate.exists():
+                      sys.path.insert(0, str(candidate))
+                      break
+              from dotfiles_discovery.discovery_metadata import (
+                  LastRunMetadata,
+                  ManifestMetadata,
+                  write_last_run,
+                  write_manifest,
+              )
+
+          tier_plan = json.loads('{{tier_plan}}')
+          results = []
+
+          for entry in tier_plan:
+              tier = entry["tier"]
+              if tier < 1:
+                  # Skipped repos — nothing to write
+                  results.append({
+                      "repo": entry["repo"],
+                      "status": "skipped",
+                      "tier": tier,
+                  })
+                  continue
+
+              output_dir = Path(entry["output_dir"])
+              discovery_dir = output_dir / ".discovery"
+
+              # Count DOT files produced
+              dot_files = [str(p.name) for p in output_dir.glob("*.dot")] if output_dir.exists() else []
+
+              # wave_count based on tier: Tier 1 = full (3 waves), Tier 2 = single wave, Tier 3 = targeted
+              wave_count = 3 if tier == 1 else (1 if tier == 2 else 0)
+
+              last_run = LastRunMetadata(
+                  timestamp=datetime.now(timezone.utc).isoformat(),
+                  tier=tier,
+                  commit_hash=entry.get("current_commit") or "",
+                  wave_count=wave_count,
+                  status="completed",
+                  reason=entry.get("reason"),
+              )
+              manifest = ManifestMetadata(
+                  topics=entry.get("topics", []),
+                  dot_files_produced=dot_files,
+              )
+
+              try:
+                  write_last_run(discovery_dir, last_run)
+                  write_manifest(discovery_dir, manifest)
+                  results.append({
+                      "repo": entry["repo"],
+                      "status": "written",
+                      "tier": tier,
+                      "dot_files": len(dot_files),
+                      "wave_count": wave_count,
+                  })
+              except Exception as exc:
+                  results.append({
+                      "repo": entry["repo"],
+                      "status": "error",
+                      "error": str(exc),
+                  })
+
+          summary = {
+              "processed": sum(1 for r in results if r["status"] == "written"),
+              "skipped":   sum(1 for r in results if r["status"] == "skipped"),
+              "errors":    sum(1 for r in results if r["status"] == "error"),
+              "repos": results,
+          }
+          print(json.dumps(summary, indent=2))
+          EOF
+        output: "metadata_result"
+        timeout: 120
+
+      # ------------------------------------------------------------------------
+      # Step 4: Display completion banner
+      # ------------------------------------------------------------------------
+      - id: "final-summary"
+        type: "bash"
+        command: |
+          python3 << 'EOF'
+          import json
+
+          dotfiles_root = "{{dotfiles_root}}"
+          metadata_raw = '{{metadata_result}}'
+
+          try:
+              metadata = json.loads(metadata_raw)
+          except Exception:
+              metadata = {"processed": "?", "skipped": "?", "errors": "?"}
+
+          print("")
+          print("=" * 60)
+          print("  DOTFILES DISCOVERY COMPLETE")
+          print("=" * 60)
+          print("")
+          print(f"  Output root  : {dotfiles_root}")
+          print(f"  Processed    : {metadata.get('processed', '?')} repos")
+          print(f"  Skipped      : {metadata.get('skipped', '?')} repos")
+          print(f"  Errors       : {metadata.get('errors', '?')} repos")
+          print("")
+          print("  Metadata written to <output_dir>/.discovery/ for each repo.")
+          print("=" * 60)
+          print("")
+          EOF
+        output: "discovery_complete"
+        timeout: 30
+
+final_output: "discovery_complete"

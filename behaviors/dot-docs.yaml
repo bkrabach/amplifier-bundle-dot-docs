@@ -1,0 +1,8 @@
+bundle:
+  name: dot-docs-behavior
+  version: 1.0.0
+  description: Adds DOT graph documentation recipes for discovering, prescanning, and synthesizing DOT graphs
+
+context:
+  include:
+    - dot-docs:context/dot-docs-awareness.md
