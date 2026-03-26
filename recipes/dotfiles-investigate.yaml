@@ -1,0 +1,315 @@
+name: "dotfiles-investigate"
+description: "Bespoke Documentation Wave investigation for a single repository"
+version: "1.0.0"
+tags: [dotfiles, investigation, parallax, documentation]
+
+# Documentation Wave Investigation Recipe
+#
+# Bespoke single-repository investigation recipe for the dotfiles pipeline.
+# Runs a Parallax Discovery wave with three triplicate agent teams
+# (code-tracer, behavior-observer, integration-mapper) and reconciles findings.
+#
+# Tiers:
+#   1 — FULL  (all three agent types run)
+#   2 — WAVE  (all three agent types run)
+#   3 — PATCH (code-tracers only; behavior-observer and integration-mapper skipped)
+#
+# Usage:
+#   amplifier recipes execute dotfiles-investigate.yaml \
+#     --context '{
+#       "repo_path": "/path/to/repo",
+#       "investigation_dir": "/path/to/.investigation",
+#       "topics_hint": [],
+#       "tier": "1"
+#     }'
+
+context:
+  repo_path: ""          # required — absolute path to the repository
+  investigation_dir: ""  # required — root for all investigation artifacts
+  topics_hint: []        # optional — topic objects from prescan
+  tier: "1"              # required — 1=FULL, 2=WAVE, 3=PATCH
+
+steps:
+  # --------------------------------------------------------------------------
+  # Step 1: Prepare workspace directories
+  # Creates investigation_dir/wave-1 and investigation_dir/foreman-notes
+  # --------------------------------------------------------------------------
+  - id: "prepare-workspace"
+    type: "bash"
+    timeout: 15
+    command: |
+      mkdir -p "{{investigation_dir}}/wave-1"
+      mkdir -p "{{investigation_dir}}/foreman-notes"
+      echo "Workspace prepared:"
+      echo "  wave-1:        {{investigation_dir}}/wave-1"
+      echo "  foreman-notes: {{investigation_dir}}/foreman-notes"
+
+  # --------------------------------------------------------------------------
+  # Step 2: Select investigation topics
+  # Uses the prescan-prompt to pick 1–6 high-signal topics for this repo
+  # --------------------------------------------------------------------------
+  - id: "select-topics"
+    type: "agent"
+    agent: "foundation:explorer"
+    output: "topics"
+    parse_json: true
+    timeout: 600
+    prompt: |
+      @dot-docs:context/prescan-prompt.md
+
+      ## Your Task
+
+      Repository path: {{repo_path}}
+      Tier: {{tier}} (1=FULL, 2=WAVE, 3=PATCH)
+      Topics hint (may be empty): {{topics_hint}}
+
+      Perform a structural scan of the repository at `{{repo_path}}` using the
+      filesystem tools. Identify the top 1–6 investigation topics that will
+      yield the most useful architectural documentation.
+
+      Return ONLY a JSON array of topic objects, one per line, in this format:
+      [
+        {
+          "name": "Human-readable topic name",
+          "slug": "kebab-case-slug",
+          "rationale": "Why this topic matters for documentation"
+        }
+      ]
+
+      Do not include any other text — just the JSON array.
+
+  # --------------------------------------------------------------------------
+  # Step 3: Build per-topic directory tree and enrich topic objects
+  # Creates wave-1/<slug>/agent-1-code-tracer etc. and adds path fields
+  # --------------------------------------------------------------------------
+  - id: "build-topic-paths"
+    type: "bash"
+    output: "topics_with_paths"
+    parse_json: true
+    timeout: 30
+    command: |
+      python3 << 'EOF'
+      import json
+      import sys
+      from pathlib import Path
+
+      investigation_dir = Path("{{investigation_dir}}")
+      wave1_dir = investigation_dir / "wave-1"
+
+      raw_topics = '{{topics}}'
+      try:
+          topics = json.loads(raw_topics)
+      except (json.JSONDecodeError, TypeError):
+          topics = []
+
+      if not isinstance(topics, list):
+          topics = []
+
+      enriched = []
+      for topic in topics:
+          slug = topic.get("slug") or topic.get("name", "unknown").lower().replace(" ", "-")
+          team_dir = wave1_dir / slug
+          code_tracer_dir = team_dir / "agent-1-code-tracer"
+          behavior_dir = team_dir / "agent-2-behavior-observer"
+          integration_dir = team_dir / "agent-3-integration-mapper"
+
+          for d in [code_tracer_dir, behavior_dir, integration_dir]:
+              d.mkdir(parents=True, exist_ok=True)
+
+          enriched.append({
+              "name": topic.get("name", slug),
+              "slug": slug,
+              "rationale": topic.get("rationale", ""),
+              "team_dir": str(team_dir),
+              "code_tracer_dir": str(code_tracer_dir),
+              "behavior_dir": str(behavior_dir),
+              "integration_dir": str(integration_dir),
+          })
+
+      print(json.dumps(enriched))
+      EOF
+
+  # --------------------------------------------------------------------------
+  # Step 4a: Wave 1 — Code Tracers (HOW agents)
+  # Traces execution paths with LSP. Runs for ALL tiers.
+  # Required outputs: findings.md, evidence.md, diagram.dot, unknowns.md
+  # --------------------------------------------------------------------------
+  - id: "wave1-code-tracers"
+    foreach: "{{topics_with_paths}}"
+    as: "topic"
+    parallel: 3
+    collect: "trace_results"
+    type: "agent"
+    agent: "parallax-discovery:code-tracer"
+    timeout: 1800
+    prompt: |
+      You are agent-1-code-tracer investigating the topic: **{{topic.name}}**
+
+      Repository: {{repo_path}}
+      Write all artifacts to: {{topic.code_tracer_dir}}
+
+      ## Your Mission
+
+      Trace HOW `{{topic.name}}` works at the code level. Follow execution paths
+      through the codebase using LSP (goToDefinition, incomingCalls, outgoingCalls)
+      and filesystem tools. Build file:line evidence for every significant finding.
+
+      ## Required Artifacts
+
+      Write all four files to `{{topic.code_tracer_dir}}/`:
+      1. `findings.md` — Code-level findings with file:line citations
+      2. `evidence.md` — Specific evidence for each claim
+      3. `diagram.dot` — DOT graph of execution paths and call chains
+      4. `unknowns.md` — Open questions that could not be answered from code alone
+
+      Topic rationale: {{topic.rationale}}
+
+  # --------------------------------------------------------------------------
+  # Step 4b: Wave 1 — Behavior Observers (WHAT agents)
+  # Examines 10+ instances to find patterns. SKIPPED for Tier 3.
+  # Required outputs: findings.md, catalog.md, patterns.md, diagram.dot, unknowns.md
+  # --------------------------------------------------------------------------
+  - id: "wave1-behavior-observers"
+    condition: "{{tier}} != '3'"
+    foreach: "{{topics_with_paths}}"
+    as: "topic"
+    parallel: 3
+    collect: "behavior_results"
+    type: "agent"
+    agent: "parallax-discovery:behavior-observer"
+    timeout: 1800
+    prompt: |
+      You are agent-2-behavior-observer investigating the topic: **{{topic.name}}**
+
+      Repository: {{repo_path}}
+      Write all artifacts to: {{topic.behavior_dir}}
+
+      ## Your Mission
+
+      Observe WHAT patterns actually exist for `{{topic.name}}` by examining
+      10+ real instances in the codebase. Patterns only emerge from breadth —
+      read many files, catalog them, and quantify what you find.
+
+      ## Required Artifacts
+
+      Write all five files to `{{topic.behavior_dir}}/`:
+      1. `findings.md` — Behavioral findings with quantitative evidence
+      2. `catalog.md` — Catalog of real instances examined
+      3. `patterns.md` — Named patterns with prevalence counts
+      4. `diagram.dot` — DOT graph of behavioral patterns
+      5. `unknowns.md` — Open questions not answerable from pattern analysis
+
+      Topic rationale: {{topic.rationale}}
+
+  # --------------------------------------------------------------------------
+  # Step 4c: Wave 1 — Integration Mappers (WHERE/WHY agents)
+  # Maps cross-boundary connections. SKIPPED for Tier 3.
+  # Required outputs: integration-map.md, diagram.dot, unknowns.md
+  # --------------------------------------------------------------------------
+  - id: "wave1-integration-mappers"
+    condition: "{{tier}} != '3'"
+    foreach: "{{topics_with_paths}}"
+    as: "topic"
+    parallel: 3
+    collect: "integration_results"
+    type: "agent"
+    agent: "parallax-discovery:integration-mapper"
+    timeout: 1800
+    prompt: |
+      You are agent-3-integration-mapper investigating the topic: **{{topic.name}}**
+
+      Repository: {{repo_path}}
+      Write all artifacts to: {{topic.integration_dir}}
+
+      ## Your Mission
+
+      Map WHERE and WHY `{{topic.name}}` connects to the rest of the system.
+      The most valuable insights live at BOUNDARIES — find cross-cutting concerns,
+      composition effects, and emergent behavior where mechanisms meet.
+
+      ## Required Artifacts
+
+      Write all three files to `{{topic.integration_dir}}/`:
+      1. `integration-map.md` — Cross-boundary integration findings
+      2. `diagram.dot` — DOT graph of integration boundaries and data flows
+      3. `unknowns.md` — Open questions about boundary behavior
+
+      Topic rationale: {{topic.rationale}}
+
+  # --------------------------------------------------------------------------
+  # Step 5: Lead Investigator — reconcile all Wave 1 findings
+  # Reads all agent artifacts and writes reconciliation.md to foreman-notes/
+  # --------------------------------------------------------------------------
+  - id: "lead-investigator"
+    type: "agent"
+    agent: "parallax-discovery:lead-investigator"
+    output: "reconciliation"
+    timeout: 2400
+    prompt: |
+      You are the lead investigator for this Wave 1 investigation.
+
+      Repository: {{repo_path}}
+      Investigation directory: {{investigation_dir}}
+      Tier: {{tier}}
+
+      ## Your Task
+
+      Read ALL agent artifacts from `{{investigation_dir}}/wave-1/` and produce
+      a reconciliation document at `{{investigation_dir}}/foreman-notes/reconciliation.md`.
+
+      The reconciliation document must include these sections:
+      1. **Summary** — Overall assessment of the investigation
+      2. **Per-Topic Findings** — Key findings for each topic investigated
+      3. **Cross-Cutting Insights** — Patterns and insights that span multiple topics
+      4. **Discrepancies** — Labeled D-01, D-02, etc. — conflicting findings between agents
+      5. **Open Questions** — Unanswered questions for future investigation
+
+      Topics investigated: {{topics_with_paths}}
+
+      After writing reconciliation.md, return a brief JSON summary:
+      {
+        "reconciliation_path": "{{investigation_dir}}/foreman-notes/reconciliation.md",
+        "topics_reconciled": <count>,
+        "discrepancies_found": <count>,
+        "open_questions": <count>
+      }
+
+  # --------------------------------------------------------------------------
+  # Step 6: Build investigation manifest
+  # Produces a JSON manifest summarizing the completed investigation
+  # --------------------------------------------------------------------------
+  - id: "build-manifest"
+    type: "bash"
+    output: "investigation_manifest"
+    parse_json: true
+    timeout: 30
+    command: |
+      python3 << 'EOF'
+      import json
+      from pathlib import Path
+
+      investigation_dir = "{{investigation_dir}}"
+      tier = "{{tier}}"
+
+      raw_topics = '{{topics_with_paths}}'
+      try:
+          topics = json.loads(raw_topics)
+      except (json.JSONDecodeError, TypeError):
+          topics = []
+
+      raw_reconciliation = '{{reconciliation}}'
+      try:
+          reconciliation = json.loads(raw_reconciliation)
+      except (json.JSONDecodeError, TypeError):
+          reconciliation = {"raw": raw_reconciliation}
+
+      manifest = {
+          "investigation_dir": investigation_dir,
+          "tier": tier,
+          "topics": topics,
+          "reconciliation": reconciliation,
+          "wave1_dir": str(Path(investigation_dir) / "wave-1"),
+      }
+
+      print(json.dumps(manifest, indent=2))
+      EOF
