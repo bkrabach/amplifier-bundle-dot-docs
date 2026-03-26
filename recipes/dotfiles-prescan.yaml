@@ -1,35 +1,29 @@
 name: "dotfiles-prescan"
-description: "Pre-scan a repository to select investigation topics before full discovery."
-version: "0.1.0"
-tags: [dotfiles, prescan, discovery]
+description: "Agent-driven topic selection toward three documentation perspectives: architecture, execution flows, and state management."
+version: "0.2.0"
+tags: [dotfiles, prescan, topic-selection]
 
-# Pre-scan Recipe
+# Pre-scan Recipe (v0.2.0)
 #
-# Examines a single repository and returns a prioritised list of topics
-# for the subsequent Parallax Discovery investigation.  The pre-scan is
-# lightweight — it does NOT run agents or LLMs; it inspects the repository
-# structure and produces a topic list that the outer discovery recipe
-# can pass to the synthesis step.
+# Two-step recipe that replaces the heuristic topic detection with an
+# agent-driven topic selection approach:
+#
+#   1. gather-metadata  — bash step that collects repo metadata as structured JSON
+#   2. select-topics    — agent step that uses prescan-prompt.md to select topics
 #
 # Context inputs:
 #   repo_path — absolute path to the repository on disk
 #
 # Outputs:
-#   prescan_result — JSON object with:
-#     {
-#       "repo":   "<repo-name>",
-#       "topics": ["<topic-1>", ...],
-#       "status": "ok" | "error",
-#       "error":  "<message>"   (only when status == "error")
-#     }
-#
-# # TODO: Replace the heuristic topic detection below with a richer
-# analysis step once an agent-driven topic selection prompt is written.
-# The agent should read README, CHANGELOG, and module structure to produce
-# semantically meaningful topics rather than directory-name heuristics.
+#   prescan_result — JSON array of selected topics with slug, rationale, tier, etc.
+
+context:
+  repo_path:
+    required: true
+    default: ""
 
 steps:
-  - id: "detect-topics"
+  - id: "gather-metadata"
     type: "bash"
     command: |
       python3 << 'EOF'
@@ -37,56 +31,126 @@ steps:
       import os
       import sys
       from pathlib import Path
+      from collections import Counter
 
-      repo_path = Path("{{repo_path}}")
+      repo_path_str = "{{repo_path}}"
+      repo_path = Path(repo_path_str)
 
       if not repo_path.exists():
           print(json.dumps({
-              "repo": repo_path.name,
-              "topics": [],
-              "status": "error",
-              "error": f"Repository not found: {repo_path}",
+              "repo_path": repo_path_str,
+              "repo_name": repo_path.name,
+              "top_level": [],
+              "readme_excerpt": "",
+              "languages": {},
+              "build_manifests": [],
+              "error": f"Repository not found: {repo_path_str}",
           }))
           sys.exit(0)
 
-      # Heuristic: treat top-level Python packages and key directories as topics
-      topics = []
+      # top_level: sorted non-hidden entries up to 30, each with name and type
+      top_level = []
+      try:
+          entries = sorted(repo_path.iterdir(), key=lambda p: p.name)
+          for entry in entries:
+              if entry.name.startswith("."):
+                  continue
+              top_level.append({
+                  "name": entry.name,
+                  "type": "dir" if entry.is_dir() else "file",
+              })
+              if len(top_level) >= 30:
+                  break
+      except Exception as e:
+          pass
 
-      # Source packages (Python)
-      for candidate in ["src", "lib", "pkg"]:
-          src_dir = repo_path / candidate
-          if src_dir.is_dir():
-              for pkg in sorted(src_dir.iterdir()):
-                  if pkg.is_dir() and (pkg / "__init__.py").exists():
-                      topics.append(pkg.name)
+      # readme_excerpt: first 2000 chars of README.md/rst/txt/README
+      readme_excerpt = ""
+      readme_candidates = ["README.md", "README.rst", "README.txt", "README"]
+      for candidate in readme_candidates:
+          readme_file = repo_path / candidate
+          if readme_file.exists():
+              try:
+                  content = readme_file.read_text(encoding="utf-8", errors="replace")
+                  readme_excerpt = content[:2000]
+              except Exception:
+                  pass
+              break
 
-      # Top-level packages
-      for pkg in sorted(repo_path.iterdir()):
-          if (
-              pkg.is_dir()
-              and (pkg / "__init__.py").exists()
-              and pkg.name not in topics
-              and not pkg.name.startswith(".")
-          ):
-              topics.append(pkg.name)
+      # languages: file count by extension top 10, skipping hidden dirs
+      ext_counter = Counter()
+      try:
+          for root, dirs, files in os.walk(repo_path):
+              # Skip hidden directories
+              dirs[:] = [d for d in dirs if not d.startswith(".")]
+              for fname in files:
+                  _, ext = os.path.splitext(fname)
+                  if ext:
+                      ext_counter[ext.lower()] += 1
+      except Exception:
+          pass
+      languages = dict(ext_counter.most_common(10))
 
-      # Fallback: use notable top-level directories
-      if not topics:
-          notable = {"core", "api", "server", "client", "cli", "services", "handlers"}
-          for d in sorted(repo_path.iterdir()):
-              if d.is_dir() and d.name in notable:
-                  topics.append(d.name)
-
-      # Cap to 5 topics to keep discovery focused
-      topics = topics[:5]
+      # build_manifests: list of detected manifest files
+      manifest_names = [
+          "pyproject.toml",
+          "package.json",
+          "Cargo.toml",
+          "go.mod",
+          "pom.xml",
+          "build.gradle",
+      ]
+      build_manifests = []
+      for manifest in manifest_names:
+          if (repo_path / manifest).exists():
+              build_manifests.append(manifest)
 
       print(json.dumps({
-          "repo": repo_path.name,
-          "topics": topics,
-          "status": "ok",
+          "repo_path": repo_path_str,
+          "repo_name": repo_path.name,
+          "top_level": top_level,
+          "readme_excerpt": readme_excerpt,
+          "languages": languages,
+          "build_manifests": build_manifests,
+          "error": None,
       }))
       EOF
+    output: "scan_metadata"
+    parse_json: true
+    timeout: 30
+
+  - id: "select-topics"
+    type: "agent"
+    prompt: |
+      @dot-docs:context/prescan-prompt.md
+
+      ## Repository Metadata
+
+      **Repository Name:** {{scan_metadata.repo_name}}
+      **Repository Path:** {{scan_metadata.repo_path}}
+
+      **Top-Level Entries:**
+      {{scan_metadata.top_level}}
+
+      **README Excerpt:**
+      {{scan_metadata.readme_excerpt}}
+
+      **Build Manifests:**
+      {{scan_metadata.build_manifests}}
+
+      **Languages (file count by extension):**
+      {{scan_metadata.languages}}
+
+      **Error (if any):**
+      {{scan_metadata.error}}
+
+      ---
+
+      Using the prescan prompt guidelines above and the repository metadata provided,
+      select the most valuable investigation topics for this repository.
+
+      Return ONLY the JSON array of selected topics. Do not include any explanation,
+      markdown formatting, or text outside the JSON array.
     output: "prescan_result"
     parse_json: true
-    timeout: 60
-
+    timeout: 600
