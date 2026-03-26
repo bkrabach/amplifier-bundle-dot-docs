@@ -90,6 +90,7 @@ steps:
     command: |
       python3 << 'EOF'
       import json
+      import re
       import sys
       from pathlib import Path
 
@@ -107,7 +108,7 @@ steps:
 
       enriched = []
       for topic in topics:
-          slug = topic.get("slug") or topic.get("name", "unknown").lower().replace(" ", "-")
+          slug = topic.get("slug") or re.sub(r'[^a-z0-9-]', '-', topic.get("name", "unknown").lower())
           team_dir = wave1_dir / slug
           code_tracer_dir = team_dir / "agent-1-code-tracer"
           behavior_dir = team_dir / "agent-2-behavior-observer"
