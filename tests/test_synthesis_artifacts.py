@@ -633,3 +633,17 @@ class TestBundleDependencies:
             "bundle.md must include amplifier-bundle-parallax-discovery. "
             "Add it to the 'includes:' block."
         )
+
+
+class TestAwarenessDocument:
+    """Verify context/dot-docs-awareness.md mentions all four recipes including the new investigate recipe."""
+
+    @pytest.fixture
+    def awareness_content(self) -> str:
+        return (BUNDLE_ROOT / "context" / "dot-docs-awareness.md").read_text()
+
+    def test_mentions_investigate_recipe(self, awareness_content: str) -> None:
+        assert "dotfiles-investigate" in awareness_content, (
+            "dot-docs-awareness.md must mention the dotfiles-investigate recipe. "
+            "Add a bullet for it under 'Available Recipes'."
+        )

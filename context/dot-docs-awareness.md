@@ -8,6 +8,7 @@ Invoke these via the `recipes` tool:
 
 - **dotfiles-discovery** (`dot-docs:recipes/dotfiles-discovery`) — Orchestrates the full discovery pipeline: scans repos, determines investigation tier, dispatches Parallax Discovery, synthesizes DOT output
 - **dotfiles-prescan** (`dot-docs:recipes/dotfiles-prescan`) — Pre-scans repository architecture to determine which investigation topics are relevant
+- **dotfiles-investigate** (`dot-docs:recipes/dotfiles-investigate.yaml`) — Dispatches Parallax Discovery triplicate agents (code-tracer, behavior-observer, integration-mapper) against a single repository and writes raw investigation artifacts to the investigation workspace. Called by dotfiles-discovery for Tier 1 and Tier 2 repos. Tier 3 repos run code-tracer only.
 - **dotfiles-synthesis** (`dot-docs:recipes/dotfiles-synthesis`) — Synthesizes raw DOT investigation output from multiple agents into polished, canonical graph files with quality gate review loop
 
 ## When to Use
