@@ -598,3 +598,58 @@ print("VALIDATION PASSED")
             f"YAML validation script failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
         assert "VALIDATION PASSED" in result.stdout
+
+
+class TestPrescanPrompt:
+    """RED phase: tests for context/prescan-prompt.md (file does not exist yet)."""
+
+    @pytest.fixture
+    def prompt_path(self) -> Path:
+        return BUNDLE_ROOT / "context" / "prescan-prompt.md"
+
+    def test_file_exists(self, prompt_path: Path) -> None:
+        assert prompt_path.exists(), f"context/prescan-prompt.md not found at {prompt_path}"
+
+    def test_file_is_nonempty(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert len(content.strip()) > 100, "prescan-prompt.md is too short (< 100 chars stripped)"
+
+    def test_mentions_architecture_perspective(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "architecture" in content.lower(), (
+            "prescan-prompt.md does not mention 'architecture' perspective"
+        )
+
+    def test_mentions_execution_flows_perspective(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "execution" in content.lower(), (
+            "prescan-prompt.md does not mention 'execution' perspective"
+        )
+
+    def test_mentions_state_perspective(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "state" in content.lower(), (
+            "prescan-prompt.md does not mention 'state' perspective"
+        )
+
+    def test_specifies_json_output_format(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "json" in content.lower(), (
+            "prescan-prompt.md does not specify JSON output format"
+        )
+
+    def test_output_format_includes_slug_field(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "slug" in content, "prescan-prompt.md output format does not include 'slug' field"
+
+    def test_output_format_includes_rationale_field(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "rationale" in content, (
+            "prescan-prompt.md output format does not include 'rationale' field"
+        )
+
+    def test_calibration_mentions_tiers(self, prompt_path: Path) -> None:
+        content = prompt_path.read_text()
+        assert "tier" in content.lower(), (
+            "prescan-prompt.md calibration does not mention 'tier'"
+        )
