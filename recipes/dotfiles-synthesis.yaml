@@ -92,6 +92,7 @@ steps:
   # --------------------------------------------------------------------------
   - id: "synthesize"
     type: "agent"
+    agent: "dot-graph:dot-author"
     prompt: |
       You are synthesizing DOT graph documentation for the repository at: {{repo_path}}
 
@@ -115,6 +116,7 @@ steps:
   # --------------------------------------------------------------------------
   - id: "quality-review"
     type: "agent"
+    agent: "dot-graph:diagram-reviewer"
     prompt: |
       You are a DOT graph quality reviewer. Review all .dot files produced in the
       output directory: {{output_dir}}
@@ -148,6 +150,7 @@ steps:
   # --------------------------------------------------------------------------
   - id: "fix-if-failed"
     type: "agent"
+    agent: "dot-graph:dot-author"
     condition: "'FAIL' in '{{review_verdict}}'"
     max_iterations: 3
     prompt: |

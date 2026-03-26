@@ -563,3 +563,40 @@ print("VALIDATION PASSED")
             f"YAML validation script failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
         )
         assert "VALIDATION PASSED" in result.stdout
+
+
+class TestSynthesisAgentFields:
+    """Verify all agent steps in dotfiles-synthesis.yaml have explicit agent: fields."""
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        path = BUNDLE_ROOT / "recipes" / "dotfiles-synthesis.yaml"
+        return yaml.safe_load(path.read_text())
+
+    def _get_step(self, recipe_data: dict, step_id: str) -> dict:
+        """Find a step by id, searching both top-level steps and stage steps."""
+        all_steps = list(recipe_data.get("steps", []))
+        for stage in recipe_data.get("stages", []):
+            all_steps.extend(stage.get("steps", []))
+        return next((s for s in all_steps if s.get("id") == step_id), {})
+
+    def test_synthesize_step_has_agent(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "synthesize")
+        assert step, "synthesize step not found in dotfiles-synthesis.yaml"
+        assert step.get("agent") == "dot-graph:dot-author", (
+            f"synthesize step must have agent: dot-graph:dot-author, got: {step.get('agent')!r}"
+        )
+
+    def test_quality_review_step_has_agent(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "quality-review")
+        assert step, "quality-review step not found in dotfiles-synthesis.yaml"
+        assert step.get("agent") == "dot-graph:diagram-reviewer", (
+            f"quality-review step must have agent: dot-graph:diagram-reviewer, got: {step.get('agent')!r}"
+        )
+
+    def test_fix_if_failed_step_has_agent(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "fix-if-failed")
+        assert step, "fix-if-failed step not found in dotfiles-synthesis.yaml"
+        assert step.get("agent") == "dot-graph:dot-author", (
+            f"fix-if-failed step must have agent: dot-graph:dot-author, got: {step.get('agent')!r}"
+        )
