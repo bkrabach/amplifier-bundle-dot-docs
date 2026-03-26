@@ -628,15 +628,11 @@ class TestPrescanPrompt:
 
     def test_mentions_state_perspective(self, prompt_path: Path) -> None:
         content = prompt_path.read_text()
-        assert "state" in content.lower(), (
-            "prescan-prompt.md does not mention 'state' perspective"
-        )
+        assert "state" in content.lower(), "prescan-prompt.md does not mention 'state' perspective"
 
     def test_specifies_json_output_format(self, prompt_path: Path) -> None:
         content = prompt_path.read_text()
-        assert "json" in content.lower(), (
-            "prescan-prompt.md does not specify JSON output format"
-        )
+        assert "json" in content.lower(), "prescan-prompt.md does not specify JSON output format"
 
     def test_output_format_includes_slug_field(self, prompt_path: Path) -> None:
         content = prompt_path.read_text()
@@ -650,6 +646,103 @@ class TestPrescanPrompt:
 
     def test_calibration_mentions_tiers(self, prompt_path: Path) -> None:
         content = prompt_path.read_text()
-        assert "tier" in content.lower(), (
-            "prescan-prompt.md calibration does not mention 'tier'"
+        assert "tier" in content.lower(), "prescan-prompt.md calibration does not mention 'tier'"
+
+
+class TestPrescanRecipeStructure:
+    """RED phase: tests for the upgraded dotfiles-prescan.yaml structure.
+
+    The new structure replaces the single heuristic 'detect-topics' bash step
+    with two steps:
+      1. gather-metadata  — bash step that collects repo metadata as JSON
+      2. select-topics    — agent step that uses prescan-prompt to pick topics
+    """
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        content = (BUNDLE_ROOT / "recipes" / "dotfiles-prescan.yaml").read_text()
+        return yaml.safe_load(content)
+
+    def _get_all_steps(self, recipe_data: dict) -> list:
+        """Return all steps from top-level 'steps' and from all stages."""
+        steps: list = []
+        if "steps" in recipe_data:
+            steps.extend(recipe_data["steps"])
+        for stage in recipe_data.get("stages", []):
+            steps.extend(stage.get("steps", []))
+        return steps
+
+    def _get_step(self, recipe_data: dict, step_id: str) -> dict | None:
+        """Find a step by its id across top-level steps and all stages."""
+        for step in self._get_all_steps(recipe_data):
+            if step.get("id") == step_id:
+                return step
+        return None
+
+    def test_has_gather_metadata_bash_step(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "gather-metadata")
+        assert step is not None, (
+            "dotfiles-prescan.yaml must have a bash step with id: gather-metadata"
+        )
+        assert step.get("type") == "bash", (
+            f"gather-metadata step type is '{step.get('type')}', expected 'bash'"
+        )
+
+    def test_gather_metadata_has_parse_json(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "gather-metadata")
+        assert step is not None, "gather-metadata step not found"
+        assert step.get("parse_json") is True, "gather-metadata step must have parse_json: true"
+
+    def test_gather_metadata_has_output(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "gather-metadata")
+        assert step is not None, "gather-metadata step not found"
+        assert step.get("output") == "scan_metadata", (
+            f"gather-metadata output is '{step.get('output')}', expected 'scan_metadata'"
+        )
+
+    def test_has_select_topics_agent_step(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step is not None, (
+            "dotfiles-prescan.yaml must have an agent step with id: select-topics"
+        )
+        assert step.get("type") == "agent", (
+            f"select-topics step type is '{step.get('type')}', expected 'agent'"
+        )
+
+    def test_select_topics_references_prescan_prompt(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step is not None, "select-topics step not found"
+        prompt = str(step.get("prompt", ""))
+        assert "prescan-prompt" in prompt, (
+            "select-topics step prompt must reference 'prescan-prompt'"
+        )
+
+    def test_select_topics_has_parse_json(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step is not None, "select-topics step not found"
+        assert step.get("parse_json") is True, "select-topics step must have parse_json: true"
+
+    def test_select_topics_has_output(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step is not None, "select-topics step not found"
+        assert step.get("output") == "prescan_result", (
+            f"select-topics output is '{step.get('output')}', expected 'prescan_result'"
+        )
+
+    def test_select_topics_references_scan_metadata(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step is not None, "select-topics step not found"
+        prompt = str(step.get("prompt", ""))
+        assert "scan_metadata" in prompt, "select-topics step prompt must reference 'scan_metadata'"
+
+    def test_gather_metadata_comes_before_select_topics(self, recipe_data: dict) -> None:
+        all_steps = self._get_all_steps(recipe_data)
+        ids = [s.get("id") for s in all_steps]
+        assert "gather-metadata" in ids, "gather-metadata step not found"
+        assert "select-topics" in ids, "select-topics step not found"
+        gather_idx = ids.index("gather-metadata")
+        select_idx = ids.index("select-topics")
+        assert gather_idx < select_idx, (
+            f"gather-metadata (index {gather_idx}) must come before "
+            f"select-topics (index {select_idx})"
         )
