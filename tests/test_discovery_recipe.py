@@ -663,7 +663,8 @@ class TestPrescanRecipeStructure:
         content = (BUNDLE_ROOT / "recipes" / "dotfiles-prescan.yaml").read_text()
         return yaml.safe_load(content)
 
-    def _get_all_steps(self, recipe_data: dict) -> list:
+    @staticmethod
+    def _get_all_steps(recipe_data: dict) -> list:
         """Return all steps from top-level 'steps' and from all stages."""
         steps: list = []
         if "steps" in recipe_data:
@@ -672,9 +673,10 @@ class TestPrescanRecipeStructure:
             steps.extend(stage.get("steps", []))
         return steps
 
-    def _get_step(self, recipe_data: dict, step_id: str) -> dict | None:
+    @staticmethod
+    def _get_step(recipe_data: dict, step_id: str) -> dict | None:
         """Find a step by its id across top-level steps and all stages."""
-        for step in self._get_all_steps(recipe_data):
+        for step in TestPrescanRecipeStructure._get_all_steps(recipe_data):
             if step.get("id") == step_id:
                 return step
         return None
