@@ -316,6 +316,21 @@ stages:
           repo_path: "{{repo_entry.repo_path}}"
         timeout: 600
 
+      - id: "investigate-repos"
+        foreach: "{{tier_plan}}"
+        as: "repo_entry"
+        condition: "{{repo_entry.tier}} >= 1"
+        collect: "investigation_results"
+        type: "recipe"
+        recipe: "@dot-docs:recipes/dotfiles-investigate.yaml"
+        context:
+          repo_path: "{{repo_entry.repo_path}}"
+          investigation_dir: "{{repo_entry.output_dir}}/.investigation"
+          topics_hint: "{{prescan_results}}"
+          tier: "{{repo_entry.tier}}"
+        on_error: continue
+        timeout: 7200
+
     approval:
       required: true
       prompt: |
@@ -360,7 +375,7 @@ stages:
           investigation_dir: "{{repo_entry.output_dir}}/.investigation"
           repo_path: "{{repo_entry.repo_path}}"
           output_dir: "{{repo_entry.output_dir}}"
-          topics: "{{repo_entry.topics}}"
+          topics: "{{investigation_results}}"
         timeout: 3600
 
       # ------------------------------------------------------------------------
@@ -373,6 +388,7 @@ stages:
         condition: "{{repo_entry.tier}} == 3"
         collect: "analysis_results"
         type: "agent"
+        agent: "dot-graph:dot-author"
         output: "tier3_analysis"
         timeout: 600
         prompt: |

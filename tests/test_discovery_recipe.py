@@ -293,9 +293,9 @@ class TestDiscoveryRecipeStage2Investigation:
         data = yaml.safe_load(content)
         return data["stages"][1]
 
-    def test_stage2_has_two_steps(self, stage2: dict) -> None:
+    def test_stage2_has_three_steps(self, stage2: dict) -> None:
         steps = stage2["steps"]
-        assert len(steps) == 2, f"Stage 2 expected 2 steps, got {len(steps)}"
+        assert len(steps) == 3, f"Stage 2 expected 3 steps, got {len(steps)}"
 
     def test_step1_process_repos(self, stage2: dict) -> None:
         step = stage2["steps"][0]
@@ -584,7 +584,7 @@ assert data['name'] == 'dotfiles-discovery', f"name mismatch: {{data.get('name')
 stages = data['stages']
 assert len(stages) == 3, f"expected 3 stages, got {{len(stages)}}"
 assert len(stages[0]['steps']) == 3, f"stage 1 expected 3 steps, got {{len(stages[0]['steps'])}}"
-assert len(stages[1]['steps']) == 2, f"stage 2 expected 2 steps, got {{len(stages[1]['steps'])}}"
+assert len(stages[1]['steps']) == 3, f"stage 2 expected 3 steps, got {{len(stages[1]['steps'])}}"
 assert len(stages[2]['steps']) == 4, f"stage 3 expected 4 steps, got {{len(stages[2]['steps'])}}"
 assert stages[1]['approval']['required'] is True, "stage 2 approval.required is not true"
 print("VALIDATION PASSED")
@@ -747,4 +747,97 @@ class TestPrescanRecipeStructure:
         assert gather_idx < select_idx, (
             f"gather-metadata (index {gather_idx}) must come before "
             f"select-topics (index {select_idx})"
+        )
+
+
+class TestDiscoveryInvestigationWiring:
+    """RED phase: tests for investigation wiring in dotfiles-discovery.yaml.
+
+    Verifies the recipe has an investigate-repos step that correctly wires
+    the dotfiles-investigate sub-recipe for each repo.
+    """
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        content = (BUNDLE_ROOT / "recipes" / "dotfiles-discovery.yaml").read_text()
+        return yaml.safe_load(content)
+
+    @staticmethod
+    def _get_all_steps(recipe_data: dict) -> list:
+        """Return all steps from top-level 'steps' and from all stages."""
+        steps: list = []
+        if "steps" in recipe_data:
+            steps.extend(recipe_data["steps"])
+        for stage in recipe_data.get("stages", []):
+            steps.extend(stage.get("steps", []))
+        return steps
+
+    @staticmethod
+    def _get_step(recipe_data: dict, step_id: str) -> dict | None:
+        """Find a step by its id across top-level steps and all stages."""
+        for step in TestDiscoveryInvestigationWiring._get_all_steps(recipe_data):
+            if step.get("id") == step_id:
+                return step
+        return None
+
+    def test_has_investigate_repos_step(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "investigate-repos")
+        assert step is not None, (
+            "dotfiles-discovery.yaml must have a step with id: investigate-repos"
+        )
+
+    def test_investigate_repos_calls_investigate_recipe(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "investigate-repos")
+        assert step is not None, "investigate-repos step not found"
+        recipe_ref = str(step.get("recipe", ""))
+        assert "dotfiles-investigate" in recipe_ref, (
+            f"investigate-repos step recipe is '{recipe_ref}', "
+            "expected reference to 'dotfiles-investigate'"
+        )
+
+    def test_investigate_repos_has_on_error_continue(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "investigate-repos")
+        assert step is not None, "investigate-repos step not found"
+        assert step.get("on_error") == "continue", (
+            f"investigate-repos on_error is '{step.get('on_error')}', "
+            "expected 'continue' (one bad repo must not kill the rest)"
+        )
+
+    def test_investigate_repos_has_collect(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "investigate-repos")
+        assert step is not None, "investigate-repos step not found"
+        assert step.get("collect") == "investigation_results", (
+            f"investigate-repos collect is '{step.get('collect')}', "
+            "expected 'investigation_results'"
+        )
+
+    def test_investigate_repos_comes_after_prescan_repos(self, recipe_data: dict) -> None:
+        all_steps = self._get_all_steps(recipe_data)
+        ids = [s.get("id") for s in all_steps]
+        assert "prescan-repos" in ids, "prescan-repos step not found"
+        assert "investigate-repos" in ids, "investigate-repos step not found"
+        prescan_idx = ids.index("prescan-repos")
+        investigate_idx = ids.index("investigate-repos")
+        assert prescan_idx < investigate_idx, (
+            f"prescan-repos (index {prescan_idx}) must come before "
+            f"investigate-repos (index {investigate_idx})"
+        )
+
+    def test_run_synthesis_topics_from_investigation_results(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "run-synthesis")
+        assert step is not None, "run-synthesis step not found"
+        context = step.get("context", {})
+        topics = str(context.get("topics", ""))
+        assert "investigation_results" in topics, (
+            f"run-synthesis context.topics is '{topics}', "
+            "expected reference to 'investigation_results' "
+            "(not the broken '{{repo_entry.topics}}')"
+        )
+
+    def test_tier3_analysis_has_agent_field(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "tier3-analysis")
+        assert step is not None, "tier3-analysis step not found"
+        agent = step.get("agent", "")
+        assert agent, (
+            "tier3-analysis step must have a non-empty 'agent:' field"
         )
