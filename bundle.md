@@ -7,6 +7,7 @@ bundle:
 includes:
   - bundle: git+https://github.com/microsoft/amplifier-foundation@main
   - bundle: git+https://github.com/microsoft/amplifier-bundle-dot-graph@main
+  - bundle: git+https://github.com/bkrabach/amplifier-bundle-parallax-discovery@main
   - bundle: dot-docs:behaviors/dot-docs
 ---
 

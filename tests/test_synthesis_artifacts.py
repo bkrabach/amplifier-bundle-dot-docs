@@ -619,3 +619,17 @@ class TestDotQualityStandards:
         assert "@dot-graph:skills/dot-quality" in content, (
             "dot-quality-standards.md must contain: @dot-graph:skills/dot-quality"
         )
+
+
+class TestBundleDependencies:
+    """Verify bundle.md declares required bundle dependencies."""
+
+    @pytest.fixture
+    def bundle_content(self) -> str:
+        return (BUNDLE_ROOT / "bundle.md").read_text()
+
+    def test_parallax_discovery_included(self, bundle_content: str) -> None:
+        assert "amplifier-bundle-parallax-discovery" in bundle_content, (
+            "bundle.md must include amplifier-bundle-parallax-discovery. "
+            "Add it to the 'includes:' block."
+        )
