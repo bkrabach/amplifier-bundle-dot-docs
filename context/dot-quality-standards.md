@@ -1,0 +1,1 @@
+@dot-graph:skills/dot-quality

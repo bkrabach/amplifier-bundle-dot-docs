@@ -600,3 +600,22 @@ class TestSynthesisAgentFields:
         assert step.get("agent") == "dot-graph:dot-author", (
             f"fix-if-failed step must have agent: dot-graph:dot-author, got: {step.get('agent')!r}"
         )
+
+
+class TestDotQualityStandards:
+    """Verify context/dot-quality-standards.md exists with the required @mention."""
+
+    @pytest.fixture
+    def standards_path(self) -> Path:
+        return BUNDLE_ROOT / "context" / "dot-quality-standards.md"
+
+    def test_file_exists(self, standards_path: Path) -> None:
+        assert standards_path.exists(), (
+            f"dot-quality-standards.md not found at {standards_path}"
+        )
+
+    def test_references_dot_graph_quality_skill(self, standards_path: Path) -> None:
+        content = standards_path.read_text()
+        assert "@dot-graph:skills/dot-quality" in content, (
+            "dot-quality-standards.md must contain: @dot-graph:skills/dot-quality"
+        )
