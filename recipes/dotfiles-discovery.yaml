@@ -328,11 +328,13 @@ stages:
           prescan_repos   = [r for r in tier_plan if r.get("tier", -1) in (1, 2)]
           investigate_repos = [r for r in tier_plan if r.get("tier", -1) >= 1]
           synthesis_repos   = investigate_repos   # same list
+          tier3_repos       = [r for r in tier_plan if r.get("tier", -1) == 3]
 
           print(json.dumps({
               "prescan": prescan_repos,
               "investigate": investigate_repos,
               "synthesis": synthesis_repos,
+              "tier3": tier3_repos,
           }))
           EOF
 
@@ -394,9 +396,8 @@ stages:
       # Step 1: Run synthesis for each active repo (Tier >= 1)
       # ------------------------------------------------------------------------
       - id: "run-synthesis"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.synthesis}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} >= 1"
         collect: "synthesis_results"
         type: "recipe"
         recipe: "dotfiles-synthesis.yaml"
@@ -412,9 +413,8 @@ stages:
       # For PATCH repos — lightweight graph quality checks before writing metadata
       # ------------------------------------------------------------------------
       - id: "tier3-analysis"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.tier3}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} == 3"
         collect: "analysis_results"
         type: "agent"
         agent: "dot-graph:dot-author"
