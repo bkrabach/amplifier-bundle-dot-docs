@@ -295,7 +295,7 @@ class TestDiscoveryRecipeStage2Investigation:
 
     def test_stage2_has_three_steps(self, stage2: dict) -> None:
         steps = stage2["steps"]
-        assert len(steps) == 3, f"Stage 2 expected 3 steps, got {len(steps)}"
+        assert len(steps) == 4, f"Stage 2 expected 4 steps, got {len(steps)}"
 
     def test_step1_process_repos(self, stage2: dict) -> None:
         step = stage2["steps"][0]
@@ -324,31 +324,30 @@ class TestDiscoveryRecipeStage2Investigation:
         )
 
     def test_step2_prescan_repos(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
+        step = stage2["steps"][2]
         assert step.get("id") == "prescan-repos", (
             f"Stage 2 step 2 id is '{step.get('id')}', expected 'prescan-repos'"
         )
 
     def test_step2_foreach_tier_plan(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
+        step = stage2["steps"][2]
         foreach = step.get("foreach", "")
-        assert "tier_plan" in str(foreach), (
+        assert "tier_filters" in str(foreach) or "tier_plan" in str(foreach), (
             f"Stage 2 step 2 foreach is '{foreach}', expected reference to tier_plan"
         )
 
     def test_step2_has_condition_tier_1_or_2(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
-        condition = str(step.get("condition", ""))
-        # Condition should check tier==1 or tier==2
-        has_tier_check = (
-            "tier" in condition and ("1" in condition or "2" in condition)
-        ) or "tier" in condition
-        assert has_tier_check, (
-            f"Stage 2 step 2 condition '{condition}' does not check tier==1 or tier==2"
+        # Tier filtering is now done by filter-tiers step (steps[1])
+        # prescan-repos no longer needs a condition since it uses a pre-filtered list
+        filter_step = stage2["steps"][1]
+        assert filter_step.get("id") == "filter-tiers", (
+            f"Stage 2 step 2 should be filter-tiers, got {filter_step.get('id')}"
         )
+        command = filter_step.get("command", "")
+        assert "tier" in command, "filter-tiers step should filter by tier value"
 
     def test_step2_dispatches_prescan_recipe(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
+        step = stage2["steps"][2]
         step_str = str(step)
         assert "prescan" in step_str.lower(), "Stage 2 step 2 does not dispatch the prescan recipe"
         assert "dotfiles-prescan" in step_str or "prescan" in step_str, (
@@ -356,16 +355,16 @@ class TestDiscoveryRecipeStage2Investigation:
         )
 
     def test_step2_collect_prescan_results(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
+        step = stage2["steps"][2]
         collect = step.get("collect", "")
         assert collect == "prescan_results", (
             f"Stage 2 step 2 collect is '{collect}', expected 'prescan_results'"
         )
 
     def test_step2_timeout_600(self, stage2: dict) -> None:
-        step = stage2["steps"][1]
+        step = stage2["steps"][2]
         assert step.get("timeout") == 600, (
-            f"Stage 2 step 2 timeout is '{step.get('timeout')}', expected 600"
+            f"Stage 2 step 3 timeout is '{step.get('timeout')}', expected 600"
         )
 
 
@@ -584,7 +583,7 @@ assert data['name'] == 'dotfiles-discovery', f"name mismatch: {{data.get('name')
 stages = data['stages']
 assert len(stages) == 3, f"expected 3 stages, got {{len(stages)}}"
 assert len(stages[0]['steps']) == 3, f"stage 1 expected 3 steps, got {{len(stages[0]['steps'])}}"
-assert len(stages[1]['steps']) == 3, f"stage 2 expected 3 steps, got {{len(stages[1]['steps'])}}"
+assert len(stages[1]['steps']) == 4, f"stage 2 expected 4 steps, got {{len(stages[1]['steps'])}}"
 assert len(stages[2]['steps']) == 4, f"stage 3 expected 4 steps, got {{len(stages[2]['steps'])}}"
 assert stages[1]['approval']['required'] is True, "stage 2 approval.required is not true"
 print("VALIDATION PASSED")

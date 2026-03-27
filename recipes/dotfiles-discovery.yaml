@@ -309,10 +309,36 @@ stages:
       # Step 2: Run pre-scan for repos at Tier 1 or Tier 2
       # Selects investigation topics before dispatching full discovery
       # ------------------------------------------------------------------------
+
+      # -------------------------------------------------------------------------
+      # Filter tier_plan into pre-screened lists (recipe engine can't do
+      # nested dict access like {{repo_entry.tier}} in conditions)
+      # -------------------------------------------------------------------------
+      - id: "filter-tiers"
+        type: "bash"
+        parse_json: true
+        output: "tier_filters"
+        timeout: 15
+        command: |
+          python3 << 'EOF'
+          import json, ast
+
+          tier_plan = ast.literal_eval("""{{tier_plan}}""")
+
+          prescan_repos   = [r for r in tier_plan if r.get("tier", -1) in (1, 2)]
+          investigate_repos = [r for r in tier_plan if r.get("tier", -1) >= 1]
+          synthesis_repos   = investigate_repos   # same list
+
+          print(json.dumps({
+              "prescan": prescan_repos,
+              "investigate": investigate_repos,
+              "synthesis": synthesis_repos,
+          }))
+          EOF
+
       - id: "prescan-repos"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.prescan}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} >= 1 and {{repo_entry.tier}} <= 2"
         collect: "prescan_results"
         type: "recipe"
         recipe: "@dot-docs:recipes/dotfiles-prescan.yaml"
@@ -321,9 +347,8 @@ stages:
         timeout: 600
 
       - id: "investigate-repos"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.investigate}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} >= 1"
         collect: "investigation_results"
         type: "recipe"
         recipe: "@dot-docs:recipes/dotfiles-investigate.yaml"
