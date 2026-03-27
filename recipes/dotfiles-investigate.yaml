@@ -88,6 +88,11 @@ steps:
     parse_json: true
     timeout: 30
     command: |
+      # Write topics to temp file first to avoid string delimiter issues
+      # when {{topics}} contains quotes, unicode arrows, em-dashes, etc.
+      cat > /tmp/dotfiles_topics_$$.json << 'TOPICS_EOF'
+      {{topics}}
+      TOPICS_EOF
       python3 << 'EOF'
       import json
       import re
@@ -97,11 +102,28 @@ steps:
       investigation_dir = Path("{{investigation_dir}}")
       wave1_dir = investigation_dir / "wave-1"
 
-      raw_topics = '{{topics}}'
+      # Read topics from temp file (safe from string delimiter issues)
+      import glob
+      import os
+      pid = os.getppid()  # shell PID that wrote the file
+      topics_files = sorted(glob.glob("/tmp/dotfiles_topics_*.json"), key=os.path.getmtime, reverse=True)
+      raw_topics = ""
+      for f in topics_files:
+          try:
+              raw_topics = Path(f).read_text().strip()
+              os.unlink(f)
+              break
+          except Exception:
+              continue
+
       try:
           topics = json.loads(raw_topics)
       except (json.JSONDecodeError, TypeError):
-          topics = []
+          import ast
+          try:
+              topics = ast.literal_eval(raw_topics)
+          except Exception:
+              topics = []
 
       if not isinstance(topics, list):
           topics = []
