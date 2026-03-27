@@ -39,6 +39,7 @@ context:
   repo_path: ""          # required — absolute path to the repository being documented
   output_dir: ""         # required — where to write overview.dot and detail files
   topics: []             # required — list of topics investigated (e.g. ["module_architecture"])
+  review_feedback: ""    # internal — populated by quality-review step on re-reviews
 
 steps:
   # --------------------------------------------------------------------------
