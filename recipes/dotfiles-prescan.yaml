@@ -121,6 +121,7 @@ steps:
 
   - id: "select-topics"
     type: "agent"
+    agent: "foundation:explorer"
     prompt: |
       @dot-docs:context/prescan-prompt.md
 
