@@ -307,24 +307,49 @@ steps:
     parse_json: true
     timeout: 30
     command: |
+      # Write template variables to temp files to avoid string delimiter issues
+      cat > /tmp/dotfiles_manifest_topics_$$.json << 'TOPICS_EOF'
+      {{topics_with_paths}}
+      TOPICS_EOF
+      cat > /tmp/dotfiles_manifest_recon_$$.json << 'RECON_EOF'
+      {{reconciliation}}
+      RECON_EOF
       python3 << 'EOF'
-      import json
+      import json, ast, glob, os
       from pathlib import Path
 
       investigation_dir = "{{investigation_dir}}"
       tier = "{{tier}}"
 
-      raw_topics = '{{topics_with_paths}}'
+      # Read topics from temp file
+      def read_temp(prefix):
+          files = sorted(glob.glob(f"/tmp/{prefix}_*.json"), key=os.path.getmtime, reverse=True)
+          for f in files:
+              try:
+                  data = Path(f).read_text().strip()
+                  os.unlink(f)
+                  return data
+              except Exception:
+                  continue
+          return "[]"
+
+      raw_topics = read_temp("dotfiles_manifest_topics")
       try:
           topics = json.loads(raw_topics)
       except (json.JSONDecodeError, TypeError):
-          topics = []
+          try:
+              topics = ast.literal_eval(raw_topics)
+          except Exception:
+              topics = []
 
-      raw_reconciliation = '{{reconciliation}}'
+      raw_recon = read_temp("dotfiles_manifest_recon")
       try:
-          reconciliation = json.loads(raw_reconciliation)
+          reconciliation = json.loads(raw_recon)
       except (json.JSONDecodeError, TypeError):
-          reconciliation = {"raw": raw_reconciliation}
+          try:
+              reconciliation = ast.literal_eval(raw_recon)
+          except Exception:
+              reconciliation = {"raw": raw_recon[:500]}
 
       manifest = {
           "investigation_dir": investigation_dir,
