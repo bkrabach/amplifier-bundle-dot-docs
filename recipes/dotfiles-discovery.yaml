@@ -451,9 +451,10 @@ stages:
                   continue
 
               dot_content = dot_file.read_text()
+              stored_hash = hash_file.read_text().strip() if hash_file.exists() else ""
               new_hash = compute_dot_hash(dot_content)
 
-              if should_update(dot_content, hash_file):
+              if new_hash != stored_hash:
                   discovery_dir.mkdir(parents=True, exist_ok=True)
                   hash_file.write_text(new_hash)
                   changed.append(repo)
