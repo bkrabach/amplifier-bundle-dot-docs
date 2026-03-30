@@ -410,7 +410,71 @@ stages:
         timeout: 3600
 
       # ------------------------------------------------------------------------
-      # Step 2: Run Tier 3 analysis checks (orphan, cycle, diff)
+      # Step 2: Compute content hash for each synthesised repo's overview.dot
+      # Allows downstream steps to skip unchanged repos (deduplication guard)
+      # ------------------------------------------------------------------------
+      - id: "check-content-hash"
+        type: "bash"
+        on_error: continue
+        timeout: 60
+        output: "content_hash_results"
+        command: |
+          python3 << 'EOF'
+          import json
+          import ast
+          import sys
+          from pathlib import Path
+
+          # Add tools directory to path
+          tools_path = Path("/home/bkrabach/dev/dot-docs/dot-docs/tools")
+          if tools_path.exists():
+              sys.path.insert(0, str(tools_path))
+
+          from dotfiles_discovery.content_hash import compute_dot_hash, should_update
+
+          synthesis_repos = ast.literal_eval("""{{tier_filters.synthesis}}""")
+
+          changed = []
+          unchanged = []
+          no_output = []
+
+          for repo_entry in synthesis_repos:
+              repo = repo_entry.get("repo", "")
+              output_dir = Path(repo_entry.get("output_dir", ""))
+              dot_file = output_dir / "overview.dot"
+              discovery_dir = output_dir / ".discovery"
+              hash_file = discovery_dir / "content-hash.txt"
+
+              if not dot_file.exists():
+                  no_output.append(repo)
+                  print(f"[content-hash] {repo}: no_output (overview.dot not found)")
+                  continue
+
+              dot_content = dot_file.read_text()
+              new_hash = compute_dot_hash(dot_content)
+
+              if should_update(dot_content, hash_file):
+                  discovery_dir.mkdir(parents=True, exist_ok=True)
+                  hash_file.write_text(new_hash)
+                  changed.append(repo)
+                  print(f"[content-hash] {repo}: changed")
+              else:
+                  unchanged.append(repo)
+                  print(f"[content-hash] {repo}: unchanged")
+
+          summary = {
+              "changed": changed,
+              "unchanged": unchanged,
+              "no_output": no_output,
+              "changed_count": len(changed),
+              "unchanged_count": len(unchanged),
+              "no_output_count": len(no_output),
+          }
+          print(json.dumps(summary))
+          EOF
+
+      # ------------------------------------------------------------------------
+      # Step 3: Run Tier 3 analysis checks (orphan, cycle, diff)
       # For PATCH repos — lightweight graph quality checks before writing metadata
       # ------------------------------------------------------------------------
       - id: "tier3-analysis"

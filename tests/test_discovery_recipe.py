@@ -369,7 +369,7 @@ class TestDiscoveryRecipeStage2Investigation:
 
 
 class TestDiscoveryRecipeStage3Synthesis:
-    """Verify stage 3: synthesis (4 steps)."""
+    """Verify stage 3: synthesis (5 steps)."""
 
     @pytest.fixture
     def stage3(self) -> dict:
@@ -379,7 +379,7 @@ class TestDiscoveryRecipeStage3Synthesis:
 
     def test_stage3_has_four_steps(self, stage3: dict) -> None:
         steps = stage3["steps"]
-        assert len(steps) == 4, f"Stage 3 expected 4 steps, got {len(steps)}"
+        assert len(steps) == 5, f"Stage 3 expected 5 steps, got {len(steps)}"
 
     def test_step1_run_synthesis(self, stage3: dict) -> None:
         step = stage3["steps"][0]
@@ -427,13 +427,13 @@ class TestDiscoveryRecipeStage3Synthesis:
         )
 
     def test_step2_tier3_analysis(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         assert step.get("id") == "tier3-analysis", (
-            f"Stage 3 step 2 id is '{step.get('id')}', expected 'tier3-analysis'"
+            f"Stage 3 step 3 id is '{step.get('id')}', expected 'tier3-analysis'"
         )
 
     def test_step2_tier3_condition(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         condition = str(step.get("condition", ""))
         foreach = str(step.get("foreach", ""))
         # Tier filtering is now done by filter-tiers step in stage 2
@@ -441,78 +441,78 @@ class TestDiscoveryRecipeStage3Synthesis:
         has_condition = "tier" in condition and "3" in condition
         has_filter_foreach = "tier_filters" in foreach
         assert has_condition or has_filter_foreach, (
-            "Stage 3 step 2 should either have tier==3 condition or use tier_filters in foreach"
+            "Stage 3 step 3 should either have tier==3 condition or use tier_filters in foreach"
         )
 
     def test_step2_tier3_mentions_orphan_check(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         prompt = step.get("prompt", step.get("command", step.get("script", ""))).lower()
-        assert "orphan" in prompt, "Stage 3 step 2 does not mention orphan check in prompt"
+        assert "orphan" in prompt, "Stage 3 step 3 does not mention orphan check in prompt"
 
     def test_step2_tier3_mentions_cycle_check(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         prompt = step.get("prompt", step.get("command", step.get("script", ""))).lower()
-        assert "cycle" in prompt, "Stage 3 step 2 does not mention cycle check in prompt"
+        assert "cycle" in prompt, "Stage 3 step 3 does not mention cycle check in prompt"
 
     def test_step2_tier3_mentions_diff_check(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         prompt = step.get("prompt", step.get("command", step.get("script", ""))).lower()
-        assert "diff" in prompt, "Stage 3 step 2 does not mention diff check in prompt"
+        assert "diff" in prompt, "Stage 3 step 3 does not mention diff check in prompt"
 
     def test_step2_tier3_output(self, stage3: dict) -> None:
-        step = stage3["steps"][1]
+        step = stage3["steps"][2]
         assert step.get("output") == "tier3_analysis", (
-            f"Stage 3 step 2 output is '{step.get('output')}', expected 'tier3_analysis'"
+            f"Stage 3 step 3 output is '{step.get('output')}', expected 'tier3_analysis'"
         )
 
     def test_step3_write_metadata(self, stage3: dict) -> None:
-        step = stage3["steps"][2]
-        assert step.get("id") == "write-metadata", (
-            f"Stage 3 step 3 id is '{step.get('id')}', expected 'write-metadata'"
-        )
-        assert step.get("type") == "bash", (
-            f"Stage 3 step 3 type is '{step.get('type')}', expected 'bash'"
-        )
-
-    def test_step3_imports_metadata_classes(self, stage3: dict) -> None:
-        step = stage3["steps"][2]
-        script = step.get("command", step.get("script", ""))
-        assert "LastRunMetadata" in script or "ManifestMetadata" in script, (
-            "Stage 3 step 3 does not import LastRunMetadata/ManifestMetadata"
-        )
-
-    def test_step3_imports_write_functions(self, stage3: dict) -> None:
-        step = stage3["steps"][2]
-        script = step.get("command", step.get("script", ""))
-        assert "write_last_run" in script, "Stage 3 step 3 does not import write_last_run"
-        assert "write_manifest" in script, "Stage 3 step 3 does not import write_manifest"
-
-    def test_step3_output_metadata_result(self, stage3: dict) -> None:
-        step = stage3["steps"][2]
-        assert step.get("output") == "metadata_result", (
-            f"Stage 3 step 3 output is '{step.get('output')}', expected 'metadata_result'"
-        )
-
-    def test_step4_final_summary(self, stage3: dict) -> None:
         step = stage3["steps"][3]
-        assert step.get("id") == "final-summary", (
-            f"Stage 3 step 4 id is '{step.get('id')}', expected 'final-summary'"
+        assert step.get("id") == "write-metadata", (
+            f"Stage 3 step 4 id is '{step.get('id')}', expected 'write-metadata'"
         )
         assert step.get("type") == "bash", (
             f"Stage 3 step 4 type is '{step.get('type')}', expected 'bash'"
         )
 
-    def test_step4_output_discovery_complete(self, stage3: dict) -> None:
+    def test_step3_imports_metadata_classes(self, stage3: dict) -> None:
         step = stage3["steps"][3]
+        script = step.get("command", step.get("script", ""))
+        assert "LastRunMetadata" in script or "ManifestMetadata" in script, (
+            "Stage 3 step 4 does not import LastRunMetadata/ManifestMetadata"
+        )
+
+    def test_step3_imports_write_functions(self, stage3: dict) -> None:
+        step = stage3["steps"][3]
+        script = step.get("command", step.get("script", ""))
+        assert "write_last_run" in script, "Stage 3 step 4 does not import write_last_run"
+        assert "write_manifest" in script, "Stage 3 step 4 does not import write_manifest"
+
+    def test_step3_output_metadata_result(self, stage3: dict) -> None:
+        step = stage3["steps"][3]
+        assert step.get("output") == "metadata_result", (
+            f"Stage 3 step 4 output is '{step.get('output')}', expected 'metadata_result'"
+        )
+
+    def test_step4_final_summary(self, stage3: dict) -> None:
+        step = stage3["steps"][4]
+        assert step.get("id") == "final-summary", (
+            f"Stage 3 step 5 id is '{step.get('id')}', expected 'final-summary'"
+        )
+        assert step.get("type") == "bash", (
+            f"Stage 3 step 5 type is '{step.get('type')}', expected 'bash'"
+        )
+
+    def test_step4_output_discovery_complete(self, stage3: dict) -> None:
+        step = stage3["steps"][4]
         assert step.get("output") == "discovery_complete", (
-            f"Stage 3 step 4 output is '{step.get('output')}', expected 'discovery_complete'"
+            f"Stage 3 step 5 output is '{step.get('output')}', expected 'discovery_complete'"
         )
 
     def test_step4_shows_dotfiles_root(self, stage3: dict) -> None:
-        step = stage3["steps"][3]
+        step = stage3["steps"][4]
         script = step.get("command", step.get("script", ""))
         assert "dotfiles_root" in script, (
-            "Stage 3 step 4 does not reference dotfiles_root in banner"
+            "Stage 3 step 5 does not reference dotfiles_root in banner"
         )
 
 
@@ -594,7 +594,7 @@ stages = data['stages']
 assert len(stages) == 3, f"expected 3 stages, got {{len(stages)}}"
 assert len(stages[0]['steps']) == 3, f"stage 1 expected 3 steps, got {{len(stages[0]['steps'])}}"
 assert len(stages[1]['steps']) == 4, f"stage 2 expected 4 steps, got {{len(stages[1]['steps'])}}"
-assert len(stages[2]['steps']) == 4, f"stage 3 expected 4 steps, got {{len(stages[2]['steps'])}}"
+assert len(stages[2]['steps']) == 5, f"stage 3 expected 5 steps, got {{len(stages[2]['steps'])}}"
 assert stages[1]['approval']['required'] is True, "stage 2 approval.required is not true"
 print("VALIDATION PASSED")
 """
@@ -848,3 +848,76 @@ class TestDiscoveryInvestigationWiring:
         assert step is not None, "tier3-analysis step not found"
         agent = step.get("agent", "")
         assert agent, "tier3-analysis step must have a non-empty 'agent:' field"
+
+
+class TestDiscoveryContentHashStep:
+    """Tests for the check-content-hash step in dotfiles-discovery.yaml.
+
+    Verifies that the synthesis stage includes a bash step that computes and
+    stores a content hash for each synthesised repo's overview.dot, allowing
+    downstream steps to detect whether the DOT output actually changed.
+    """
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        content = (BUNDLE_ROOT / "recipes" / "dotfiles-discovery.yaml").read_text()
+        return yaml.safe_load(content)
+
+    @staticmethod
+    def _get_all_steps(recipe_data: dict) -> list:
+        """Return all steps from top-level 'steps' and from all stages."""
+        steps: list = []
+        if "steps" in recipe_data:
+            steps.extend(recipe_data["steps"])
+        for stage in recipe_data.get("stages", []):
+            steps.extend(stage.get("steps", []))
+        return steps
+
+    @staticmethod
+    def _get_step(recipe_data: dict, step_id: str) -> dict | None:
+        """Find a step by its id across top-level steps and all stages."""
+        for step in TestDiscoveryContentHashStep._get_all_steps(recipe_data):
+            if step.get("id") == step_id:
+                return step
+        return None
+
+    def test_has_check_content_hash_step(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "check-content-hash")
+        assert step is not None, (
+            "dotfiles-discovery.yaml must have a step with id: check-content-hash"
+        )
+
+    def test_check_content_hash_is_bash(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "check-content-hash")
+        assert step is not None, "check-content-hash step not found"
+        assert step.get("type") == "bash", (
+            f"check-content-hash step type is '{step.get('type')}', expected 'bash'"
+        )
+
+    def test_check_content_hash_references_content_hash_module(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "check-content-hash")
+        assert step is not None, "check-content-hash step not found"
+        command = str(step.get("command", ""))
+        assert "content_hash" in command, (
+            "check-content-hash step command must reference 'content_hash' module"
+        )
+
+    def test_check_content_hash_references_should_update(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "check-content-hash")
+        assert step is not None, "check-content-hash step not found"
+        command = str(step.get("command", ""))
+        assert "should_update" in command, (
+            "check-content-hash step command must reference 'should_update'"
+        )
+
+    def test_check_content_hash_after_run_synthesis(self, recipe_data: dict) -> None:
+        all_steps = self._get_all_steps(recipe_data)
+        ids = [s.get("id") for s in all_steps]
+        assert "run-synthesis" in ids, "run-synthesis step not found"
+        assert "check-content-hash" in ids, "check-content-hash step not found"
+        synthesis_idx = ids.index("run-synthesis")
+        hash_idx = ids.index("check-content-hash")
+        assert synthesis_idx < hash_idx, (
+            f"run-synthesis (index {synthesis_idx}) must come before "
+            f"check-content-hash (index {hash_idx})"
+        )
