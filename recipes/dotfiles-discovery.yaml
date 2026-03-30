@@ -396,9 +396,8 @@ stages:
       # Step 1: Run synthesis for each active repo (Tier >= 1)
       # ------------------------------------------------------------------------
       - id: "run-synthesis"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.synthesis}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} >= 1"
         collect: "synthesis_results"
         type: "recipe"
         recipe: "/home/bkrabach/dev/dot-docs/dot-docs/recipes/dotfiles-synthesis.yaml"
@@ -415,9 +414,8 @@ stages:
       # For PATCH repos — lightweight graph quality checks before writing metadata
       # ------------------------------------------------------------------------
       - id: "tier3-analysis"
-        foreach: "{{tier_plan}}"
+        foreach: "{{tier_filters.tier3}}"
         as: "repo_entry"
-        condition: "{{repo_entry.tier}} == 3"
         collect: "analysis_results"
         type: "agent"
         agent: "dot-graph:dot-author"
