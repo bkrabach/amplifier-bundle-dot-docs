@@ -229,3 +229,52 @@ class TestInvestigationRecipeSteps:
         assert step.get("output") == "investigation_manifest", (
             f"build-manifest must have output: investigation_manifest, got: {step.get('output')!r}"
         )
+
+
+class TestInvestigationRecipeSpawnMode:
+    """Verify agent steps use spawn_mode: subprocess to prevent OOM.
+
+    Each parallel agent step and the heavy lead-investigator step must
+    run in a separate OS process so memory is reclaimed between waves.
+    """
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        path = BUNDLE_ROOT / "recipes" / "dotfiles-investigate.yaml"
+        return yaml.safe_load(path.read_text())
+
+    def _get_step(self, recipe_data: dict, step_id: str) -> dict:
+        steps = list(recipe_data.get("steps", []))
+        for stage in recipe_data.get("stages", []):
+            steps.extend(stage.get("steps", []))
+        return next((s for s in steps if s.get("id") == step_id), {})
+
+    def test_select_topics_has_spawn_mode_subprocess(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "select-topics")
+        assert step.get("spawn_mode") == "subprocess", (
+            f"select-topics must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
+        )
+
+    def test_code_tracers_has_spawn_mode_subprocess(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "wave1-code-tracers")
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-code-tracers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
+        )
+
+    def test_behavior_observers_has_spawn_mode_subprocess(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "wave1-behavior-observers")
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-behavior-observers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
+        )
+
+    def test_integration_mappers_has_spawn_mode_subprocess(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "wave1-integration-mappers")
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-integration-mappers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
+        )
+
+    def test_lead_investigator_has_spawn_mode_subprocess(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "lead-investigator")
+        assert step.get("spawn_mode") == "subprocess", (
+            f"lead-investigator must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
+        )

@@ -51,6 +51,7 @@ steps:
   - id: "select-topics"
     type: "agent"
     agent: "foundation:explorer"
+    spawn_mode: "subprocess"
     output: "topics"
     parse_json: true
     timeout: 600
@@ -164,6 +165,7 @@ steps:
     collect: "trace_results"
     type: "agent"
     agent: "parallax-discovery:code-tracer"
+    spawn_mode: "subprocess"
     timeout: 1800
     prompt: |
       You are agent-1-code-tracer investigating the topic: **{{topic.name}}**
@@ -200,6 +202,7 @@ steps:
     collect: "behavior_results"
     type: "agent"
     agent: "parallax-discovery:behavior-observer"
+    spawn_mode: "subprocess"
     timeout: 1800
     prompt: |
       You are agent-2-behavior-observer investigating the topic: **{{topic.name}}**
@@ -237,6 +240,7 @@ steps:
     collect: "integration_results"
     type: "agent"
     agent: "parallax-discovery:integration-mapper"
+    spawn_mode: "subprocess"
     timeout: 1800
     prompt: |
       You are agent-3-integration-mapper investigating the topic: **{{topic.name}}**
@@ -266,6 +270,7 @@ steps:
   - id: "lead-investigator"
     type: "agent"
     agent: "parallax-discovery:lead-investigator"
+    spawn_mode: "subprocess"
     output: "reconciliation"
     timeout: 2400
     prompt: |
