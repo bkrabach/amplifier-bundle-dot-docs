@@ -390,15 +390,20 @@ class TestDiscoveryRecipeStage3Synthesis:
     def test_step1_foreach_tier_plan(self, stage3: dict) -> None:
         step = stage3["steps"][0]
         foreach = step.get("foreach", "")
-        assert "tier_plan" in str(foreach), (
-            f"Stage 3 step 1 foreach is '{foreach}', expected reference to tier_plan"
+        assert "tier_filters" in str(foreach) or "tier_plan" in str(foreach), (
+            f"Stage 3 step 1 foreach is '{foreach}', expected reference to tier_plan or tier_filters"
         )
 
     def test_step1_condition_tier_ge_1(self, stage3: dict) -> None:
         step = stage3["steps"][0]
         condition = str(step.get("condition", ""))
-        assert "tier" in condition and "1" in condition, (
-            f"Stage 3 step 1 condition '{condition}' does not check tier>=1"
+        foreach = str(step.get("foreach", ""))
+        # Tier filtering is now done by filter-tiers step in stage 2
+        # run-synthesis uses pre-filtered tier_filters.synthesis, so no condition needed
+        has_condition = "tier" in condition and "1" in condition
+        has_filter_foreach = "tier_filters" in foreach
+        assert has_condition or has_filter_foreach, (
+            "Stage 3 step 1 should either have tier>=1 condition or use tier_filters in foreach"
         )
 
     def test_step1_dispatches_synthesis_recipe(self, stage3: dict) -> None:
@@ -430,8 +435,13 @@ class TestDiscoveryRecipeStage3Synthesis:
     def test_step2_tier3_condition(self, stage3: dict) -> None:
         step = stage3["steps"][1]
         condition = str(step.get("condition", ""))
-        assert "tier" in condition and "3" in condition, (
-            f"Stage 3 step 2 condition '{condition}' does not check tier==3"
+        foreach = str(step.get("foreach", ""))
+        # Tier filtering is now done by filter-tiers step in stage 2
+        # tier3-analysis uses pre-filtered tier_filters.tier3, so no condition needed
+        has_condition = "tier" in condition and "3" in condition
+        has_filter_foreach = "tier_filters" in foreach
+        assert has_condition or has_filter_foreach, (
+            "Stage 3 step 2 should either have tier==3 condition or use tier_filters in foreach"
         )
 
     def test_step2_tier3_mentions_orphan_check(self, stage3: dict) -> None:
@@ -837,6 +847,4 @@ class TestDiscoveryInvestigationWiring:
         step = self._get_step(recipe_data, "tier3-analysis")
         assert step is not None, "tier3-analysis step not found"
         agent = step.get("agent", "")
-        assert agent, (
-            "tier3-analysis step must have a non-empty 'agent:' field"
-        )
+        assert agent, "tier3-analysis step must have a non-empty 'agent:' field"
