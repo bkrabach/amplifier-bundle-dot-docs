@@ -85,6 +85,16 @@ class TestFindOrphanedDirs:
         result = find_orphaned_dirs([], tmp_path)
         assert result == ["repo-a", "repo-b"]
 
+    def test_ignores_hidden_directories(self, tmp_path: Path) -> None:
+        from dotfiles_discovery.reconciliation import find_orphaned_dirs
+
+        (tmp_path / "repo-a").mkdir()
+        (tmp_path / ".discovery").mkdir()
+        (tmp_path / ".investigation").mkdir()
+        (tmp_path / ".gitkeep").mkdir()
+        result = find_orphaned_dirs(["repo-a"], tmp_path)
+        assert result == [], f"Hidden dirs should be ignored, got {result}"
+
 
 class TestFormatReconciliationWarning:
     """Verify format_reconciliation_warning() returns correctly formatted warning strings."""

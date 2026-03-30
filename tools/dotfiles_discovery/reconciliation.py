@@ -27,7 +27,11 @@ def find_orphaned_dirs(profile_repos: list[str], dotfiles_dir: Path) -> list[str
         return []
 
     profile_set = set(profile_repos)
-    on_disk = {entry.name for entry in dotfiles_dir.iterdir() if entry.is_dir()}
+    on_disk = {
+        entry.name
+        for entry in dotfiles_dir.iterdir()
+        if entry.is_dir() and not entry.name.startswith(".")
+    }
     orphans = on_disk - profile_set
     return sorted(orphans)
 
