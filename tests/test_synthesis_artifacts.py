@@ -610,9 +610,7 @@ class TestDotQualityStandards:
         return BUNDLE_ROOT / "context" / "dot-quality-standards.md"
 
     def test_file_exists(self, standards_path: Path) -> None:
-        assert standards_path.exists(), (
-            f"dot-quality-standards.md not found at {standards_path}"
-        )
+        assert standards_path.exists(), f"dot-quality-standards.md not found at {standards_path}"
 
     def test_references_dot_graph_quality_skill(self, standards_path: Path) -> None:
         content = standards_path.read_text()
@@ -647,3 +645,37 @@ class TestAwarenessDocument:
             "dot-docs-awareness.md must mention the dotfiles-investigate recipe. "
             "Add a bullet for it under 'Available Recipes'."
         )
+
+
+class TestSynthesisRecipeProvenance:
+    """Verify dotfiles-synthesis.yaml carries source_sha through to the synthesize prompt."""
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        content = (BUNDLE_ROOT / "recipes" / "dotfiles-synthesis.yaml").read_text()
+        return yaml.safe_load(content)
+
+    def test_context_has_source_sha(self, recipe_data: dict) -> None:
+        context = recipe_data.get("context", {})
+        assert "source_sha" in context
+
+    def test_synthesize_prompt_mentions_source_sha(self, recipe_data: dict) -> None:
+        steps = recipe_data.get("steps", [])
+        synth = next((s for s in steps if s.get("id") == "synthesize"), None)
+        assert synth is not None
+        prompt = synth.get("prompt", "")
+        assert "source_sha" in prompt
+
+    def test_synthesize_prompt_mentions_generated_at(self, recipe_data: dict) -> None:
+        steps = recipe_data.get("steps", [])
+        synth = next((s for s in steps if s.get("id") == "synthesize"), None)
+        assert synth is not None
+        prompt = synth.get("prompt", "")
+        assert "generated_at" in prompt
+
+    def test_synthesize_prompt_shows_provenance_format(self, recipe_data: dict) -> None:
+        steps = recipe_data.get("steps", [])
+        synth = next((s for s in steps if s.get("id") == "synthesize"), None)
+        assert synth is not None
+        prompt = synth.get("prompt", "")
+        assert "graph [" in prompt

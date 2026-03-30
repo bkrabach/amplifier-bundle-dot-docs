@@ -396,8 +396,9 @@ stages:
       # Step 1: Run synthesis for each active repo (Tier >= 1)
       # ------------------------------------------------------------------------
       - id: "run-synthesis"
-        foreach: "{{tier_filters.synthesis}}"
+        foreach: "{{tier_plan}}"
         as: "repo_entry"
+        condition: "{{repo_entry.tier}} >= 1"
         collect: "synthesis_results"
         type: "recipe"
         recipe: "/home/bkrabach/dev/dot-docs/dot-docs/recipes/dotfiles-synthesis.yaml"
@@ -406,6 +407,7 @@ stages:
           repo_path: "{{repo_entry.repo_path}}"
           output_dir: "{{repo_entry.output_dir}}"
           topics: "{{investigation_results}}"
+          source_sha: "{{repo_entry.current_commit}}"
         timeout: 3600
 
       # ------------------------------------------------------------------------
@@ -413,8 +415,9 @@ stages:
       # For PATCH repos — lightweight graph quality checks before writing metadata
       # ------------------------------------------------------------------------
       - id: "tier3-analysis"
-        foreach: "{{tier_filters.tier3}}"
+        foreach: "{{tier_plan}}"
         as: "repo_entry"
+        condition: "{{repo_entry.tier}} == 3"
         collect: "analysis_results"
         type: "agent"
         agent: "dot-graph:dot-author"

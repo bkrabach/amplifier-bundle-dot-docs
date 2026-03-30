@@ -315,7 +315,7 @@ steps:
       {{reconciliation}}
       RECON_EOF
       python3 << 'EOF'
-      import json, ast, glob, os
+      import json, ast, glob, os, subprocess
       from pathlib import Path
 
       investigation_dir = "{{investigation_dir}}"
@@ -351,12 +351,21 @@ steps:
           except Exception:
               reconciliation = {"raw": raw_recon[:500]}
 
+      source_sha_result = subprocess.run(
+          ["git", "rev-parse", "HEAD"],
+          cwd="{{repo_path}}",
+          capture_output=True,
+          text=True,
+      )
+      source_sha = source_sha_result.stdout.strip() if source_sha_result.returncode == 0 else ""
+
       manifest = {
           "investigation_dir": investigation_dir,
           "tier": tier,
           "topics": topics,
           "reconciliation": reconciliation,
           "wave1_dir": str(Path(investigation_dir) / "wave-1"),
+          "source_sha": source_sha,
       }
 
       print(json.dumps(manifest, indent=2))

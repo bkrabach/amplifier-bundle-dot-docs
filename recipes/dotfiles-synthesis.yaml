@@ -39,6 +39,7 @@ context:
   repo_path: ""          # required — absolute path to the repository being documented
   output_dir: ""         # required — where to write overview.dot and detail files
   topics: []             # required — list of topics investigated (e.g. ["module_architecture"])
+  source_sha: ""  # optional — git SHA of the source repo at investigation time
   review_feedback: ""    # internal — populated by quality-review step on re-reviews
 
 steps:
@@ -100,9 +101,22 @@ steps:
       Investigation workspace: {{investigation_dir}}
       Output directory: {{output_dir}}
       Topics investigated: {{topics}}
+      Source SHA: {{source_sha}}
 
       Inventory of files available for synthesis:
       {{dot_inventory}}
+
+      ## Provenance Attributes (Required)
+
+      In every DOT file you produce, add the following graph-level attributes
+      immediately after the opening `digraph {` or `graph {` line:
+
+          graph [source_sha="{{source_sha}}", generated_at="<current ISO 8601 timestamp>"]
+
+      Replace `<current ISO 8601 timestamp>` with the actual current date-time
+      in ISO 8601 format (e.g. `2024-01-15T12:34:56Z`). This enables provenance
+      tracking so consumers know which commit and generation time each diagram
+      corresponds to.
 
       @dot-docs:context/synthesis-prompt.md
     output: "synthesis_summary"
