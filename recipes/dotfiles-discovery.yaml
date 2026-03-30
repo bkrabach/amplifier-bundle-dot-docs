@@ -658,3 +658,53 @@ stages:
         output: "discovery_complete"
         timeout: 30
 
+      # ------------------------------------------------------------------------
+      # Step 5: Reconcile stale repos
+      # Find directories in dotfiles_root that no longer have a profile entry.
+      # Reports orphaned directories so humans can decide whether to remove them.
+      # Never deletes anything — humans decide.
+      # ------------------------------------------------------------------------
+      - id: "reconcile-stale-repos"
+        type: "bash"
+        on_error: continue
+        timeout: 30
+        output: "reconciliation_result"
+        command: |
+          python3 << 'EOF'
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, "/home/bkrabach/dev/dot-docs/dot-docs/tools")
+
+          try:
+              import yaml
+          except ImportError:
+              import subprocess
+              subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=True)
+              import yaml
+
+          from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
+
+          profile_path = Path("{{profile_path}}")
+          dotfiles_root = Path("{{dotfiles_root}}")
+
+          with open(profile_path) as f:
+              profile = yaml.safe_load(f)
+
+          repos = profile.get("repos", [])
+          repo_names = []
+          for repo in repos:
+              if isinstance(repo, str):
+                  repo_names.append(repo)
+              elif isinstance(repo, dict):
+                  repo_names.append(repo.get("name", str(repo)))
+
+          orphans = find_orphaned_dirs(repo_names, dotfiles_root)
+          warning = format_reconciliation_warning(orphans)
+
+          if warning:
+              print(warning)
+          else:
+              print("Reconciliation complete: no orphans found.")
+          EOF
+

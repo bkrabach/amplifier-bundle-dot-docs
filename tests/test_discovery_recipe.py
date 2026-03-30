@@ -379,7 +379,7 @@ class TestDiscoveryRecipeStage3Synthesis:
 
     def test_stage3_has_four_steps(self, stage3: dict) -> None:
         steps = stage3["steps"]
-        assert len(steps) == 5, f"Stage 3 expected 5 steps, got {len(steps)}"
+        assert len(steps) == 6, f"Stage 3 expected 6 steps, got {len(steps)}"
 
     def test_step1_run_synthesis(self, stage3: dict) -> None:
         step = stage3["steps"][0]
@@ -594,7 +594,7 @@ stages = data['stages']
 assert len(stages) == 3, f"expected 3 stages, got {{len(stages)}}"
 assert len(stages[0]['steps']) == 3, f"stage 1 expected 3 steps, got {{len(stages[0]['steps'])}}"
 assert len(stages[1]['steps']) == 4, f"stage 2 expected 4 steps, got {{len(stages[1]['steps'])}}"
-assert len(stages[2]['steps']) == 5, f"stage 3 expected 5 steps, got {{len(stages[2]['steps'])}}"
+assert len(stages[2]['steps']) == 6, f"stage 3 expected 6 steps, got {{len(stages[2]['steps'])}}"
 assert stages[1]['approval']['required'] is True, "stage 2 approval.required is not true"
 print("VALIDATION PASSED")
 """
@@ -920,4 +920,84 @@ class TestDiscoveryContentHashStep:
         assert synthesis_idx < hash_idx, (
             f"run-synthesis (index {synthesis_idx}) must come before "
             f"check-content-hash (index {hash_idx})"
+        )
+
+
+class TestDiscoveryReconciliationStep:
+    """Tests for the reconcile-stale-repos step in dotfiles-discovery.yaml.
+
+    Verifies that the synthesis stage includes a bash step that identifies
+    output directories on disk that have no matching profile entry, allowing
+    humans to review and clean up stale repos.
+    """
+
+    @pytest.fixture
+    def recipe_data(self) -> dict:
+        content = (BUNDLE_ROOT / "recipes" / "dotfiles-discovery.yaml").read_text()
+        return yaml.safe_load(content)
+
+    @staticmethod
+    def _get_all_steps(recipe_data: dict) -> list:
+        """Return all steps from top-level 'steps' and from all stages."""
+        steps: list = []
+        if "steps" in recipe_data:
+            steps.extend(recipe_data["steps"])
+        for stage in recipe_data.get("stages", []):
+            steps.extend(stage.get("steps", []))
+        return steps
+
+    @staticmethod
+    def _get_step(recipe_data: dict, step_id: str) -> dict | None:
+        """Find a step by its id across top-level steps and all stages."""
+        for step in TestDiscoveryReconciliationStep._get_all_steps(recipe_data):
+            if step.get("id") == step_id:
+                return step
+        return None
+
+    def test_has_reconcile_stale_repos_step(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "reconcile-stale-repos")
+        assert step is not None, (
+            "dotfiles-discovery.yaml must have a step with id: reconcile-stale-repos"
+        )
+
+    def test_reconcile_step_is_bash(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "reconcile-stale-repos")
+        assert step is not None, "reconcile-stale-repos step not found"
+        assert step.get("type") == "bash", (
+            f"reconcile-stale-repos step type is '{step.get('type')}', expected 'bash'"
+        )
+
+    def test_reconcile_step_has_on_error_continue(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "reconcile-stale-repos")
+        assert step is not None, "reconcile-stale-repos step not found"
+        assert step.get("on_error") == "continue", (
+            f"reconcile-stale-repos on_error is '{step.get('on_error')}', expected 'continue'"
+        )
+
+    def test_reconcile_step_references_reconciliation_module(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "reconcile-stale-repos")
+        assert step is not None, "reconcile-stale-repos step not found"
+        command = str(step.get("command", ""))
+        assert "reconciliation" in command, (
+            "reconcile-stale-repos step command must reference 'reconciliation' module"
+        )
+
+    def test_reconcile_step_references_find_orphaned_dirs(self, recipe_data: dict) -> None:
+        step = self._get_step(recipe_data, "reconcile-stale-repos")
+        assert step is not None, "reconcile-stale-repos step not found"
+        command = str(step.get("command", ""))
+        assert "find_orphaned_dirs" in command, (
+            "reconcile-stale-repos step command must reference 'find_orphaned_dirs'"
+        )
+
+    def test_reconcile_step_after_final_summary(self, recipe_data: dict) -> None:
+        all_steps = self._get_all_steps(recipe_data)
+        ids = [s.get("id") for s in all_steps]
+        assert "final-summary" in ids, "final-summary step not found"
+        assert "reconcile-stale-repos" in ids, "reconcile-stale-repos step not found"
+        summary_idx = ids.index("final-summary")
+        reconcile_idx = ids.index("reconcile-stale-repos")
+        assert summary_idx < reconcile_idx, (
+            f"final-summary (index {summary_idx}) must come before "
+            f"reconcile-stale-repos (index {reconcile_idx})"
         )

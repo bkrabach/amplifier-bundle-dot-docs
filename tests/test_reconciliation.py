@@ -109,7 +109,7 @@ class TestFormatReconciliationWarning:
         assert "beta" in result
         assert "gamma" in result
 
-    def test_warning_mentions_no_delete(self) -> None:
+    def test_warning_instructs_manual_action(self) -> None:
         from dotfiles_discovery.reconciliation import format_reconciliation_warning
 
         result = format_reconciliation_warning(["old-repo"])
