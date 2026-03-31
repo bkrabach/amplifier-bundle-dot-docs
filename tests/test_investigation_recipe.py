@@ -174,22 +174,22 @@ class TestInvestigationRecipeSteps:
 
     # --- Parallel settings ---
 
-    def test_code_tracers_parallel_1(self, recipe_data: dict) -> None:
+    def test_code_tracers_parallel_3(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-code-tracers")
-        assert step.get("parallel") == 1, (
-            f"wave1-code-tracers must have parallel: 1 (OOM mitigation), got: {step.get('parallel')!r}"
+        assert step.get("parallel") == 3, (
+            f"wave1-code-tracers must have parallel: 3 (subprocess isolation), got: {step.get('parallel')!r}"
         )
 
-    def test_behavior_observers_parallel_1(self, recipe_data: dict) -> None:
+    def test_behavior_observers_parallel_3(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-behavior-observers")
-        assert step.get("parallel") == 1, (
-            f"wave1-behavior-observers must have parallel: 1 (OOM mitigation), got: {step.get('parallel')!r}"
+        assert step.get("parallel") == 3, (
+            f"wave1-behavior-observers must have parallel: 3 (subprocess isolation), got: {step.get('parallel')!r}"
         )
 
-    def test_integration_mappers_parallel_1(self, recipe_data: dict) -> None:
+    def test_integration_mappers_parallel_3(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-integration-mappers")
-        assert step.get("parallel") == 1, (
-            f"wave1-integration-mappers must have parallel: 1 (OOM mitigation), got: {step.get('parallel')!r}"
+        assert step.get("parallel") == 3, (
+            f"wave1-integration-mappers must have parallel: 3 (subprocess isolation), got: {step.get('parallel')!r}"
         )
 
     # --- Tier conditions ---
@@ -232,12 +232,12 @@ class TestInvestigationRecipeSteps:
 
 
 class TestInvestigationRecipeSpawnMode:
-    """Verify agent steps do NOT use spawn_mode: subprocess.
+    """Verify agent steps use spawn_mode: subprocess for process isolation.
 
-    Subprocess agents get "No providers available" because the subprocess
-    runner's BundleModuleResolver has no settings fallback for provider
-    modules. Until the subprocess infrastructure is fixed in
-    amplifier-foundation, all agent steps must run in-process.
+    Foundation fixes landed (3cb6ae6):
+    - AppModuleResolver with FoundationSettingsResolver fallback
+    - BundleModuleResolver exception class fixed
+    - Missing capabilities registered
     """
 
     @pytest.fixture
@@ -251,32 +251,32 @@ class TestInvestigationRecipeSpawnMode:
             steps.extend(stage.get("steps", []))
         return next((s for s in steps if s.get("id") == step_id), {})
 
-    def test_select_topics_no_spawn_mode(self, recipe_data: dict) -> None:
+    def test_select_topics_spawn_mode_subprocess(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "select-topics")
-        assert step.get("spawn_mode") is None, (
-            f"select-topics must NOT have spawn_mode set, got: {step.get('spawn_mode')!r}"
+        assert step.get("spawn_mode") == "subprocess", (
+            f"select-topics must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
         )
 
-    def test_code_tracers_no_spawn_mode(self, recipe_data: dict) -> None:
+    def test_code_tracers_spawn_mode_subprocess(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-code-tracers")
-        assert step.get("spawn_mode") is None, (
-            f"wave1-code-tracers must NOT have spawn_mode set, got: {step.get('spawn_mode')!r}"
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-code-tracers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
         )
 
-    def test_behavior_observers_no_spawn_mode(self, recipe_data: dict) -> None:
+    def test_behavior_observers_spawn_mode_subprocess(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-behavior-observers")
-        assert step.get("spawn_mode") is None, (
-            f"wave1-behavior-observers must NOT have spawn_mode set, got: {step.get('spawn_mode')!r}"
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-behavior-observers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
         )
 
-    def test_integration_mappers_no_spawn_mode(self, recipe_data: dict) -> None:
+    def test_integration_mappers_spawn_mode_subprocess(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "wave1-integration-mappers")
-        assert step.get("spawn_mode") is None, (
-            f"wave1-integration-mappers must NOT have spawn_mode set, got: {step.get('spawn_mode')!r}"
+        assert step.get("spawn_mode") == "subprocess", (
+            f"wave1-integration-mappers must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
         )
 
-    def test_lead_investigator_no_spawn_mode(self, recipe_data: dict) -> None:
+    def test_lead_investigator_spawn_mode_subprocess(self, recipe_data: dict) -> None:
         step = self._get_step(recipe_data, "lead-investigator")
-        assert step.get("spawn_mode") is None, (
-            f"lead-investigator must NOT have spawn_mode set, got: {step.get('spawn_mode')!r}"
+        assert step.get("spawn_mode") == "subprocess", (
+            f"lead-investigator must have spawn_mode: subprocess, got: {step.get('spawn_mode')!r}"
         )
