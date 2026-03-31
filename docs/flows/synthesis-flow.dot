@@ -1,0 +1,182 @@
+// Synthesis Flow — The Polishing Machine
+// Takes messy research notes and turns them into clean, pretty diagrams.
+// Like taking rough drafts and turning them into a final school report.
+
+digraph synthesis_flow {
+    // --- Graph settings ---
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=12
+    label="Synthesis Flow — The Polishing Machine\nTakes messy research notes and turns them into clean, pretty diagrams"
+    labelloc=t
+    labeljust=c
+    compound=true
+    nodesep=0.6
+    ranksep=0.7
+    bgcolor="white"
+
+    // --- Node defaults ---
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded"]
+    edge [fontname="Helvetica", fontsize=9]
+
+    // === START / END ===
+    start [label="Start\n(raw research)", shape=oval, fillcolor="#e0e0e0"]
+    done  [label="Done!\nClean Diagrams", shape=oval, fillcolor="#e0e0e0"]
+
+    // =====================================================================
+    // PREP — Figure out what we have to work with
+    // =====================================================================
+    subgraph cluster_prep {
+        label="Preparation\n\"See what the researchers found\""
+        style="filled,rounded"
+        fillcolor="#f5f9ff"
+        color="#999999"
+
+        inventory   [label="List All Files", shape=box, fillcolor="#bbdefb"
+                     tooltip="Find all .dot files and reconciliation.md in the investigation folder"]
+        prep_output [label="Make Output\nFolder", shape=box, fillcolor="#bbdefb"
+                     tooltip="Create the folder where polished diagrams will go"]
+    }
+
+    // =====================================================================
+    // SYNTHESIS — The AI writes the clean diagrams
+    // =====================================================================
+    subgraph cluster_synth {
+        label="Synthesis\n\"Write the clean version\""
+        style="filled,rounded"
+        fillcolor="#f0f7f0"
+        color="#999999"
+
+        synthesize [label="AI Writes\nDiagrams", shape=box, fillcolor="#c8e6c9"
+                    tooltip="The dot-author AI reads all research and writes polished DOT files"]
+
+        // Output files
+        subgraph cluster_outputs {
+            label="Files Produced"
+            style="filled,rounded"
+            fillcolor="white"
+            color="#cccccc"
+            fontsize=9
+
+            node [shape=note, fillcolor="white", fontsize=9]
+
+            overview_dot [label="overview.dot\n(required)"]
+            detail_dots  [label="detail files\n(optional)"]
+        }
+
+        synthesize -> overview_dot [arrowhead=none, style=dotted]
+        synthesize -> detail_dots  [arrowhead=none, style=dotted]
+    }
+
+    // =====================================================================
+    // REVIEW — A second AI checks the work
+    // =====================================================================
+    subgraph cluster_review {
+        label="Quality Check\n\"Did the AI do a good job?\""
+        style="filled,rounded"
+        fillcolor="#fff8e1"
+        color="#999999"
+
+        review [label="Reviewer AI\nChecks Quality", shape=box, fillcolor="#c8e6c9"
+                tooltip="A separate AI reviews: syntax, structure, quality, style, and usefulness"]
+
+        // What it checks
+        subgraph cluster_checks {
+            label="What it checks"
+            style="filled,rounded"
+            fillcolor="white"
+            color="#cccccc"
+            fontsize=9
+
+            node [shape=box, fillcolor="#f5f5f5", fontsize=9, style="filled,rounded"]
+
+            chk_syntax [label="Valid DOT\nsyntax?"]
+            chk_struct [label="Good\nstructure?"]
+            chk_style  [label="Looks\nclean?"]
+        }
+
+        review -> chk_syntax [arrowhead=none, style=dotted]
+        review -> chk_struct [arrowhead=none, style=dotted]
+        review -> chk_style  [arrowhead=none, style=dotted]
+    }
+
+    // === VERDICT DECISION ===
+    verdict [label="Passed?", shape=diamond, fillcolor="#ffe0b2"
+             tooltip="PASS=done, WARN=done with notes, FAIL=needs fixing"]
+
+    // =====================================================================
+    // FIX LOOP — If the review failed, fix and try again
+    // =====================================================================
+    subgraph cluster_fix {
+        label="Fix It\n\"Try again (up to 3 times)\""
+        style="filled,rounded"
+        fillcolor="#ffebee"
+        color="#999999"
+
+        fix [label="AI Fixes\nProblems", shape=box, fillcolor="#c8e6c9"
+             tooltip="The dot-author reads feedback and fixes the issues"]
+        retry_count [label="Tried 3\ntimes?", shape=diamond, fillcolor="#fff9c4"
+                     tooltip="Give up after 3 attempts"]
+    }
+
+    // =====================================================================
+    // VALIDATE — Final machine check
+    // =====================================================================
+    subgraph cluster_validate {
+        label="Final Validation\n\"Machine double-checks everything\""
+        style="filled,rounded"
+        fillcolor="#f5f9ff"
+        color="#999999"
+
+        validate [label="Validate DOT\nFiles", shape=box, fillcolor="#bbdefb"
+                  tooltip="Run automated checks: syntax, line count, render test"]
+    }
+
+    // === EDGES ===
+
+    // Prep
+    start -> inventory
+    inventory -> prep_output
+
+    // Synthesis
+    prep_output -> synthesize
+
+    // Review
+    synthesize -> review
+
+    // Verdict decision
+    review -> verdict
+
+    // Pass or warn → validate
+    verdict -> validate [label="PASS\nor WARN", color="#4caf50"]
+
+    // Fail -> fix loop
+    verdict -> fix [label="FAIL", color="#f44336"]
+    fix -> retry_count
+    retry_count -> review [label="Try again", style=dashed]
+    retry_count -> validate [label="Gave up\n(3 tries)", style=dashed, color="#f44336"]
+
+    // Final
+    validate -> done
+
+    // =====================================================================
+    // LEGEND
+    // =====================================================================
+    subgraph cluster_legend {
+        label="Legend"
+        style="filled,rounded"
+        fillcolor="white"
+        color="#cccccc"
+        fontsize=10
+
+        node [shape=box, fontsize=9, width=1.6]
+
+        leg_bash   [label="Script Step", fillcolor="#bbdefb"]
+        leg_agent  [label="AI Agent Step", fillcolor="#c8e6c9"]
+        leg_gate   [label="Decision Point", shape=diamond, fillcolor="#ffe0b2"]
+        leg_file   [label="Output File", shape=note, fillcolor="white"]
+        leg_start  [label="Start / End", shape=oval, fillcolor="#e0e0e0"]
+
+        leg_bash -> leg_agent -> leg_gate -> leg_file -> leg_start [style=invis]
+    }
+}

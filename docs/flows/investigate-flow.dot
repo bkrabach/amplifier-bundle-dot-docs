@@ -1,0 +1,170 @@
+// Investigate Flow — The Research Team
+// Sends 3 types of AI agents to study each topic in a repo.
+// Like sending a reporter, a scientist, and a mapmaker to study the same thing.
+
+digraph investigate_flow {
+    // --- Graph settings ---
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=12
+    label="Investigate Flow — The Research Team\nSends 3 types of AI agents to study each topic, then a lead combines their notes"
+    labelloc=t
+    labeljust=c
+    compound=true
+    nodesep=0.6
+    ranksep=0.7
+    bgcolor="white"
+
+    // --- Node defaults ---
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded"]
+    edge [fontname="Helvetica", fontsize=9]
+
+    // === START / END ===
+    start [label="Start", shape=oval, fillcolor="#e0e0e0"]
+    done  [label="Done!\nManifest Ready", shape=oval, fillcolor="#e0e0e0"]
+
+    // =====================================================================
+    // PREP — Get ready for the investigation
+    // =====================================================================
+    subgraph cluster_prep {
+        label="Preparation\n\"Get everything ready\""
+        style="filled,rounded"
+        fillcolor="#f9f9f9"
+        color="#999999"
+
+        make_folders  [label="Make Folders", shape=box, fillcolor="#bbdefb"
+                       tooltip="Create wave-1/ and foreman-notes/ directories"]
+        pick_topics   [label="Pick Topics", shape=box, fillcolor="#c8e6c9"
+                       tooltip="AI agent scans the repo and picks 1-6 important topics"]
+        build_paths   [label="Set Up Paths", shape=box, fillcolor="#bbdefb"
+                       tooltip="Create a folder for each topic with 3 agent subfolders"]
+    }
+
+    // =====================================================================
+    // TIER CHECK — What kind of investigation?
+    // =====================================================================
+    tier_check [label="What tier?", shape=diamond, fillcolor="#fff9c4"
+                tooltip="Tier 1/2 = all 3 agents. Tier 3 = code tracers only"]
+
+    // =====================================================================
+    // WAVE 1 — Three types of agents investigate in parallel
+    // =====================================================================
+    subgraph cluster_wave {
+        label="Wave 1 Investigation\n\"Three teams study each topic at the same time\""
+        style="filled,rounded"
+        fillcolor="#f0f7f0"
+        color="#999999"
+
+        // --- Code Tracers ---
+        subgraph cluster_tracers {
+            label="Code Tracers\n\"HOW does it work?\""
+            style="filled,rounded"
+            fillcolor="#e8f5e9"
+            color="#a5d6a7"
+
+            tracer_work [label="Trace Code Paths", shape=box, fillcolor="#c8e6c9"
+                         tooltip="Follow function calls through the code using LSP tools"]
+            tracer_out  [label="findings.md\nevidence.md\ndiagram.dot\nunknowns.md", shape=note, fillcolor="white"
+                         fontsize=9]
+        }
+
+        // --- Behavior Observers ---
+        subgraph cluster_observers {
+            label="Behavior Observers\n\"WHAT patterns exist?\""
+            style="filled,rounded"
+            fillcolor="#e8f5e9"
+            color="#a5d6a7"
+
+            observer_work [label="Find Patterns", shape=box, fillcolor="#c8e6c9"
+                           tooltip="Look at 10+ examples to find repeating patterns"]
+            observer_out  [label="findings.md\ncatalog.md\npatterns.md\ndiagram.dot\nunknowns.md", shape=note, fillcolor="white"
+                           fontsize=9]
+        }
+
+        // --- Integration Mappers ---
+        subgraph cluster_mappers {
+            label="Integration Mappers\n\"WHERE does it connect?\""
+            style="filled,rounded"
+            fillcolor="#e8f5e9"
+            color="#a5d6a7"
+
+            mapper_work [label="Map Connections", shape=box, fillcolor="#c8e6c9"
+                         tooltip="Find where this topic touches other parts of the system"]
+            mapper_out  [label="integration-map.md\ndiagram.dot\nunknowns.md", shape=note, fillcolor="white"
+                         fontsize=9]
+        }
+    }
+
+    // =====================================================================
+    // RECONCILIATION — The lead puts it all together
+    // =====================================================================
+    subgraph cluster_reconcile {
+        label="Wrap Up\n\"The lead combines everything\""
+        style="filled,rounded"
+        fillcolor="#f9f9f9"
+        color="#999999"
+
+        lead [label="Lead Investigator\nReconciles", shape=box, fillcolor="#c8e6c9"
+              tooltip="Reads all agent work, finds agreements and disagreements"]
+        reconciliation_file [label="reconciliation.md", shape=note, fillcolor="white"
+                             fontsize=9]
+        build_manifest [label="Build Manifest", shape=box, fillcolor="#bbdefb"
+                        tooltip="Create a JSON summary of everything found"]
+    }
+
+    // === EDGES ===
+
+    // Prep flow
+    start -> make_folders
+    make_folders -> pick_topics
+    pick_topics -> build_paths
+
+    // Tier decision
+    build_paths -> tier_check
+
+    // Tier 1 & 2: all three agent types
+    tier_check -> tracer_work   [label="All tiers"]
+    tier_check -> observer_work [label="Tier 1 & 2\nonly"]
+    tier_check -> mapper_work   [label="Tier 1 & 2\nonly"]
+
+    // Agent outputs
+    tracer_work -> tracer_out
+    observer_work -> observer_out
+    mapper_work -> mapper_out
+
+    // All feed into the lead
+    tracer_out -> lead
+    observer_out -> lead [style=dashed, label="Skipped\nfor Tier 3"]
+    mapper_out -> lead   [style=dashed, label="Skipped\nfor Tier 3"]
+
+    // Reconciliation
+    lead -> reconciliation_file
+    reconciliation_file -> build_manifest
+    build_manifest -> done
+
+    // =====================================================================
+    // PARALLEL HINT
+    // =====================================================================
+    { rank=same; tracer_work; observer_work; mapper_work }
+
+    // =====================================================================
+    // LEGEND
+    // =====================================================================
+    subgraph cluster_legend {
+        label="Legend"
+        style="filled,rounded"
+        fillcolor="white"
+        color="#cccccc"
+        fontsize=10
+
+        node [shape=box, fontsize=9, width=1.6]
+
+        leg_bash   [label="Script Step", fillcolor="#bbdefb"]
+        leg_agent  [label="AI Agent Step", fillcolor="#c8e6c9"]
+        leg_file   [label="Output File", shape=note, fillcolor="white"]
+        leg_decide [label="Decision", shape=diamond, fillcolor="#fff9c4"]
+        leg_start  [label="Start / End", shape=oval, fillcolor="#e0e0e0"]
+
+        leg_bash -> leg_agent -> leg_file -> leg_decide -> leg_start [style=invis]
+    }
+}
