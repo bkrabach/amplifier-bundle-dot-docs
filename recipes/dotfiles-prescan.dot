@@ -1,0 +1,40 @@
+// Scans your repository and picks the most important topics to write documentation about.
+digraph dotfiles_prescan {
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=12
+    label="Topic Scout\nScans your repo and picks the best topics to document"
+    labelloc=t
+    labeljust=c
+    compound=true
+    nodesep=0.6
+    ranksep=0.7
+    bgcolor="white"
+    source_hash="c97efe0026d5422b22fd6365b2551c3ae745e240affde15b5ba60096503c9221"
+
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded"]
+    edge [fontname="Helvetica", fontsize=9]
+
+    start [label="Start", shape=oval, fillcolor="#e0e0e0"]
+    done  [label="Done!", shape=oval, fillcolor="#e0e0e0"]
+
+    step_gather_metadata [label="Scan the Repo\n\"What files and folders are here?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import os import sys from pathlib import Path from collections import C"]
+    step_select_topics [label="Pick Documentation Topics\n\"What's worth writing about?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="foundation:explorer"]
+
+    start -> step_gather_metadata
+    step_gather_metadata -> step_select_topics
+    step_select_topics -> done
+
+    subgraph cluster_legend {
+        label="Guide\n\"What do the colors mean?\""
+        style="filled,rounded"
+        fillcolor="white"
+        color="#cccccc"
+        fontsize=10
+        node [shape=box, fontsize=9, width=1.6]
+        leg_bash [label="Script Step", shape=box, fillcolor="#bbdefb"]
+        leg_agent [label="AI Agent Step", shape=box, fillcolor="#c8e6c9"]
+        leg_start [label="Start / End", shape=oval, fillcolor="#e0e0e0"]
+        leg_bash -> leg_agent -> leg_start [style=invis]
+    }
+}

@@ -1,0 +1,52 @@
+// This recipe takes raw investigation notes and turns them into polished, easy-to-read diagrams.
+digraph dotfiles_synthesis {
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=12
+    label="Diagram Polisher\nTakes rough investigation notes and turns them into clean, final diagrams"
+    labelloc=t
+    labeljust=c
+    compound=true
+    nodesep=0.6
+    ranksep=0.7
+    bgcolor="white"
+    source_hash="748e278448920dd4891f27850f5a2b29245d8424163f9f3ec34b914d09084107"
+
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded"]
+    edge [fontname="Helvetica", fontsize=9]
+
+    start [label="Start", shape=oval, fillcolor="#e0e0e0"]
+    done  [label="Done!", shape=oval, fillcolor="#e0e0e0"]
+
+    step_inventory_dots [label="Find All Draft Diagrams\n\"What do we have to work with?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail INV='{{investigation_dir}}'  echo '=== INVESTIGATION DIRECTORY STRUCTURE ===' find"]
+    step_prepare_output [label="Set Up Output Folders\n\"Make room for the final versions\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail mkdir -p '{{output_dir}}' mkdir -p '{{output_dir}}/.discovery' echo 'Output direct"]
+    step_synthesize [label="Write the Final Diagrams\n\"Combine findings into polished visuals\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
+    step_quality_review [label="Review Diagram Quality\n\"Do these meet our standards?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:diagram-reviewer"]
+    cond_step_fix_if_failed [label="Did the review\nfind problems?", shape=diamond, fillcolor="#fff9c4"]
+    step_fix_if_failed [label="Fix the Problems\n\"Address the reviewer's feedback\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
+    step_validate_output [label="Final Check\n\"Confirm everything is in order\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail python3 - <<'PYEOF' import sys from pathlib import Path  # Add tools directory to "]
+
+    start -> step_inventory_dots
+    step_inventory_dots -> step_prepare_output
+    step_prepare_output -> step_synthesize
+    step_synthesize -> step_quality_review
+    step_quality_review -> cond_step_fix_if_failed
+    cond_step_fix_if_failed -> step_fix_if_failed [label="review_verdict == FAIL"]
+    step_quality_review -> step_validate_output
+    cond_step_fix_if_failed -> step_validate_output [label="skip", style=dashed]
+    step_validate_output -> done
+
+    subgraph cluster_legend {
+        label="How to Read This\n\"What the colors mean\""
+        style="filled,rounded"
+        fillcolor="white"
+        color="#cccccc"
+        fontsize=10
+        node [shape=box, fontsize=9, width=1.6]
+        leg_bash [label="Script Step", shape=box, fillcolor="#bbdefb"]
+        leg_agent [label="AI Agent Step", shape=box, fillcolor="#c8e6c9"]
+        leg_cond [label="Condition", shape=diamond, fillcolor="#fff9c4"]
+        leg_start [label="Start / End", shape=oval, fillcolor="#e0e0e0"]
+        leg_bash -> leg_agent -> leg_cond -> leg_start [style=invis]
+    }
+}
