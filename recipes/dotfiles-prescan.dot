@@ -1,9 +1,9 @@
-// Scans your repository and picks the most important topics to write documentation about.
+// This recipe scans your code repository and picks the most important topics to document.
 digraph dotfiles_prescan {
     rankdir=TB
     fontname="Helvetica"
     fontsize=12
-    label="Topic Scout\nScans your repo and picks the best topics to document"
+    label="Pick Documentation Topics\nScans your repo and chooses what's worth writing about"
     labelloc=t
     labeljust=c
     compound=true
@@ -18,15 +18,15 @@ digraph dotfiles_prescan {
     start [label="Start", shape=oval, fillcolor="#e0e0e0"]
     done  [label="Done!", shape=oval, fillcolor="#e0e0e0"]
 
-    step_gather_metadata [label="Scan the Repo\n\"What files and folders are here?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import os import sys from pathlib import Path from collections import C"]
-    step_select_topics [label="Pick Documentation Topics\n\"What's worth writing about?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="foundation:explorer"]
+    step_gather_metadata [label="Scan the Repo\n\"What files are in here?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import os import sys from pathlib import Path from collections import C"]
+    step_select_topics [label="Pick Topics to Document\n\"What's worth writing about?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="foundation:explorer"]
 
     start -> step_gather_metadata
     step_gather_metadata -> step_select_topics
     step_select_topics -> done
 
     subgraph cluster_legend {
-        label="Guide\n\"What do the colors mean?\""
+        label="How to Read This\n\"What do the colors mean?\""
         style="filled,rounded"
         fillcolor="white"
         color="#cccccc"

@@ -1,9 +1,9 @@
-// This recipe explores a code repository by sending specialist agents to investigate it from different angles, then combines their findings into a summary.
+// This recipe investigates a single code repository by sending AI agents to study each key topic from three angles — tracing code, observing patterns, and mapping connections.
 digraph dotfiles_investigate {
     rankdir=TB
     fontname="Helvetica"
     fontsize=12
-    label="Dotfiles Investigator\nExplores a repository with specialist agents, then combines what they found"
+    label="Repo Deep Dive\nInvestigates a single repository from multiple angles to understand how it works"
     labelloc=t
     labeljust=c
     compound=true
@@ -18,16 +18,16 @@ digraph dotfiles_investigate {
     start [label="Start", shape=oval, fillcolor="#e0e0e0"]
     done  [label="Done!", shape=oval, fillcolor="#e0e0e0"]
 
-    step_prepare_workspace [label="Set Up Folders\n\"Get everything organized\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="mkdir -p '{{investigation_dir}}/wave-1' mkdir -p '{{investigation_dir}}/foreman-notes' echo 'Workspa"]
-    step_select_topics [label="Pick What to Investigate\n\"What looks interesting?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="foundation:explorer"]
-    step_build_topic_paths [label="Organize the Topics\n\"Sort out who goes where\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="# Write topics to temp file first to avoid string delimiter issues # when {{topics}} contains quotes"]
-    step_wave1_code_tracers [label="Trace the Code\n\"How does it actually work?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:code-tracer"]
-    cond_step_wave1_behavior_observers [label="Full\ninvestigation?", shape=diamond, fillcolor="#fff9c4"]
-    step_wave1_behavior_observers [label="Observe Patterns\n\"What's really happening?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:behavior-observer"]
-    cond_step_wave1_integration_mappers [label="Full\ninvestigation?", shape=diamond, fillcolor="#fff9c4"]
-    step_wave1_integration_mappers [label="Map Connections\n\"Where do things link up?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:integration-mapper"]
+    step_prepare_workspace [label="Set Up Folders\n\"Get organized\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="mkdir -p '{{investigation_dir}}/wave-1' mkdir -p '{{investigation_dir}}/foreman-notes' echo 'Workspa"]
+    step_select_topics [label="Scan & Pick Topics\n\"What should we study?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="foundation:explorer"]
+    step_build_topic_paths [label="Organize Topic List\n\"Sort out the details\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="# Write topics to temp file first to avoid string delimiter issues # when {{topics}} contains quotes"]
+    step_wave1_code_tracers [label="Trace Each Topic's Code\n\"How does it work?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:code-tracer"]
+    cond_step_wave1_behavior_observers [label="Full study?", shape=diamond, fillcolor="#fff9c4"]
+    step_wave1_behavior_observers [label="Study Real Patterns\n\"What actually happens?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:behavior-observer"]
+    cond_step_wave1_integration_mappers [label="Full study?", shape=diamond, fillcolor="#fff9c4"]
+    step_wave1_integration_mappers [label="Map Connections\n\"Where do parts meet?\"\n(for each topic)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:integration-mapper"]
     step_lead_investigator [label="Review All Findings\n\"What did we learn?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="parallax-discovery:lead-investigator"]
-    step_build_manifest [label="Package the Results\n\"Bundle it all up\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="# Write template variables to temp files to avoid string delimiter issues cat > /tmp/dotfiles_manife"]
+    step_build_manifest [label="Package the Results\n\"Wrap it all up\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="# Write template variables to temp files to avoid string delimiter issues cat > /tmp/dotfiles_manife"]
 
     start -> step_prepare_workspace
     step_prepare_workspace -> step_select_topics
@@ -44,16 +44,16 @@ digraph dotfiles_investigate {
     step_build_manifest -> done
 
     subgraph cluster_legend {
-        label="Guide\n\"What do the shapes mean?\""
+        label="Key\n\"What the shapes mean\""
         style="filled,rounded"
         fillcolor="white"
         color="#cccccc"
         fontsize=10
         node [shape=box, fontsize=9, width=1.6]
-        leg_bash [label="Script Step", shape=box, fillcolor="#bbdefb"]
+        leg_bash [label="Automated Step", shape=box, fillcolor="#bbdefb"]
         leg_agent [label="AI Agent Step", shape=box, fillcolor="#c8e6c9"]
-        leg_cond [label="Condition", shape=diamond, fillcolor="#fff9c4"]
-        leg_start [label="Start / End", shape=oval, fillcolor="#e0e0e0"]
+        leg_cond [label="Decision Point", shape=diamond, fillcolor="#fff9c4"]
+        leg_start [label="Start / Done", shape=oval, fillcolor="#e0e0e0"]
         leg_bash -> leg_agent -> leg_cond -> leg_start [style=invis]
     }
 }

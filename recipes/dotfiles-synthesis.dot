@@ -1,9 +1,9 @@
-// This recipe takes raw investigation notes and turns them into polished, easy-to-read diagrams.
+// This recipe turns raw investigation diagrams into polished, readable charts — then checks their quality before finishing.
 digraph dotfiles_synthesis {
     rankdir=TB
     fontname="Helvetica"
     fontsize=12
-    label="Diagram Polisher\nTakes rough investigation notes and turns them into clean, final diagrams"
+    label="Diagram Polishing Pipeline\nTurns raw investigation notes into clean, readable diagrams"
     labelloc=t
     labeljust=c
     compound=true
@@ -18,13 +18,13 @@ digraph dotfiles_synthesis {
     start [label="Start", shape=oval, fillcolor="#e0e0e0"]
     done  [label="Done!", shape=oval, fillcolor="#e0e0e0"]
 
-    step_inventory_dots [label="Find All Draft Diagrams\n\"What do we have to work with?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail INV='{{investigation_dir}}'  echo '=== INVESTIGATION DIRECTORY STRUCTURE ===' find"]
-    step_prepare_output [label="Set Up Output Folders\n\"Make room for the final versions\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail mkdir -p '{{output_dir}}' mkdir -p '{{output_dir}}/.discovery' echo 'Output direct"]
-    step_synthesize [label="Write the Final Diagrams\n\"Combine findings into polished visuals\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
-    step_quality_review [label="Review Diagram Quality\n\"Do these meet our standards?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:diagram-reviewer"]
-    cond_step_fix_if_failed [label="Did the review\nfind problems?", shape=diamond, fillcolor="#fff9c4"]
-    step_fix_if_failed [label="Fix the Problems\n\"Address the reviewer's feedback\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
-    step_validate_output [label="Final Check\n\"Confirm everything is in order\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail python3 - <<'PYEOF' import sys from pathlib import Path  # Add tools directory to "]
+    step_inventory_dots [label="Scan for Diagrams\n\"What did the investigation produce?\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail INV='{{investigation_dir}}'  echo '=== INVESTIGATION DIRECTORY STRUCTURE ===' find"]
+    step_prepare_output [label="Set Up Workspace\n\"Make room for results\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail mkdir -p '{{output_dir}}' mkdir -p '{{output_dir}}/.discovery' echo 'Output direct"]
+    step_synthesize [label="Build the Diagrams\n\"Combine findings into pictures\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
+    step_quality_review [label="Check Quality\n\"Are the diagrams clear & correct?\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:diagram-reviewer"]
+    cond_step_fix_if_failed [label="Quality check\nfailed?", shape=diamond, fillcolor="#fff9c4"]
+    step_fix_if_failed [label="Fix the Issues\n\"Address reviewer feedback\"", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
+    step_validate_output [label="Final Validation\n\"Confirm everything is ready\"", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="set -euo pipefail python3 - <<'PYEOF' import sys from pathlib import Path  # Add tools directory to "]
 
     start -> step_inventory_dots
     step_inventory_dots -> step_prepare_output
@@ -37,7 +37,7 @@ digraph dotfiles_synthesis {
     step_validate_output -> done
 
     subgraph cluster_legend {
-        label="How to Read This\n\"What the colors mean\""
+        label="Guide\n\"What the shapes mean\""
         style="filled,rounded"
         fillcolor="white"
         color="#cccccc"

@@ -1,9 +1,9 @@
-// This recipe scans all the repos in your dotfiles profile, figures out what changed, and rebuilds their documentation graphs.
+// Discovers and documents all your code repos — reads your list, figures out what changed, and builds a summary of each one.
 digraph dotfiles_discovery {
     rankdir=TB
     fontname="Helvetica"
     fontsize=12
-    label="Dotfiles Discovery\nScans your repos, figures out what changed, and builds fresh documentation"
+    label="Dotfiles Discovery\nReads your repo list, scans each one, and builds documentation for what's inside"
     labelloc=t
     labeljust=c
     compound=true
@@ -25,7 +25,7 @@ digraph dotfiles_discovery {
         color="#999999"
 
         step_read_profile [label="Read Your\nRepo List", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from pathlib import Path  try:     import yaml ex"]
-        step_determine_tiers [label="Decide What\nEach Repo Needs", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from pathlib import Path  sys.path.insert(0, str("]
+        step_determine_tiers [label="Decide How Much\nWork Each Needs", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from pathlib import Path  sys.path.insert(0, str("]
         step_display_plan [label="Show the\nGame Plan", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json  import ast TIER_LABELS = {     -1: 'SKIP (not found)',      0: 'SKIP ("]
 
         start -> step_read_profile
@@ -33,18 +33,18 @@ digraph dotfiles_discovery {
         step_determine_tiers -> step_display_plan
     }
 
-    gate_investigation [label="Human\nApproves?\n\"Look good?\"", shape=diamond, fillcolor="#ffe0b2", tooltip="## Discovery Plan — Ready for Synthesis  The following tier plan was computed from your profile and "]
+    gate_investigation [label="Human Approves?\n\"Does this plan look right?\"", shape=diamond, fillcolor="#ffe0b2", tooltip="## Discovery Plan — Ready for Synthesis  The following tier plan was computed from your profile and "]
     step_display_plan -> gate_investigation
     subgraph cluster_investigation {
-        label="Deep Dive\n\"What's inside each repo?\""
+        label="Scanning & Investigating\n\"What's inside each repo?\""
         style="filled,rounded"
         fillcolor="#f9f9f9"
         color="#999999"
 
-        step_process_repos [label="Prepare\nEach Repo\n(for each)", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json  import ast entry = ast.literal_eval('''{{repo_entry}}''') repo  = entr"]
-        step_filter_tiers [label="Sort Repos by\nWork Needed", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json, ast  tier_plan = ast.literal_eval('''{{tier_plan}}''')  prescan_repos "]
-        step_prescan_repos [label="Quick Scan\nEach Repo\n(for each)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="prescan-repos"]
-        step_investigate_repos [label="Investigate\nEach Repo\n(for each)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="investigate-repos"]
+        step_process_repos [label="Prepare Each Repo\nfor Scanning\n(for each)", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json  import ast entry = ast.literal_eval('''{{repo_entry}}''') repo  = entr"]
+        step_filter_tiers [label="Sort Repos\nby Priority", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json, ast  tier_plan = ast.literal_eval('''{{tier_plan}}''')  prescan_repos "]
+        step_prescan_repos [label="Quick Scan\nEach Repo\n(dotfiles-prescan)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="prescan-repos"]
+        step_investigate_repos [label="Deep Dive\nEach Repo\n(dotfiles-investigate)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="investigate-repos"]
 
         gate_investigation -> step_process_repos
         step_process_repos -> step_filter_tiers
@@ -53,17 +53,17 @@ digraph dotfiles_discovery {
     }
 
     subgraph cluster_synthesis {
-        label="Wrap-Up\n\"Build the docs and tidy up\""
+        label="Building Results\n\"Putting it all together\""
         style="filled,rounded"
         fillcolor="#f9f9f9"
         color="#999999"
 
-        step_run_synthesis [label="Build the\nDocumentation\n(for each)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="run-synthesis"]
-        step_check_content_hash [label="Anything\nActually Change?", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from pathlib import Path  # Add tools directory t"]
-        step_tier3_analysis [label="AI Quality\nCheck\n(for each)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
-        step_write_metadata [label="Save a Record\nof This Run", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from datetime import datetime, timezone from path"]
-        step_final_summary [label="Show the\nFinal Report", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json  import ast dotfiles_root = '{{dotfiles_root}}' metadata_raw = '{{metad"]
-        step_reconcile_stale_repos [label="Clean Up\nOld Repos", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import sys from pathlib import Path  sys.path.insert(0, '/home/bkrabach/dev/dot-doc"]
+        step_run_synthesis [label="Build the Docs\nfor Each Repo\n(dotfiles-synthesis)", shape=box, fillcolor="#e0e0e0", style="filled,rounded,dashed", tooltip="run-synthesis"]
+        step_check_content_hash [label="Skip If Nothing\nChanged", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from pathlib import Path  # Add tools directory t"]
+        step_tier3_analysis [label="AI Quality Check\non Small Repos\n(for each)", shape=box, fillcolor="#c8e6c9", style="filled,rounded", tooltip="dot-graph:dot-author"]
+        step_write_metadata [label="Save a Record\nof What Was Done", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json import ast import sys from datetime import datetime, timezone from path"]
+        step_final_summary [label="Print the\nFinal Report", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import json  import ast dotfiles_root = '{{dotfiles_root}}' metadata_raw = '{{metad"]
+        step_reconcile_stale_repos [label="Clean Up Repos\nNo Longer Listed", shape=box, fillcolor="#bbdefb", style="filled,rounded", tooltip="python3 << 'EOF' import sys from pathlib import Path  sys.path.insert(0, '/home/bkrabach/dev/dot-doc"]
 
         step_investigate_repos -> step_run_synthesis
         step_run_synthesis -> step_check_content_hash
