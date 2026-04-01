@@ -163,6 +163,7 @@ steps:
     as: "topic"
     parallel: 3
     collect: "trace_results"
+    on_error: "continue"
     type: "agent"
     agent: "parallax-discovery:code-tracer"
     spawn_mode: "subprocess"
@@ -200,6 +201,7 @@ steps:
     as: "topic"
     parallel: 3
     collect: "behavior_results"
+    on_error: "continue"
     type: "agent"
     agent: "parallax-discovery:behavior-observer"
     spawn_mode: "subprocess"
@@ -238,6 +240,7 @@ steps:
     as: "topic"
     parallel: 3
     collect: "integration_results"
+    on_error: "continue"
     type: "agent"
     agent: "parallax-discovery:integration-mapper"
     spawn_mode: "subprocess"
