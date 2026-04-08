@@ -265,6 +265,7 @@ stages:
         output: "plan_display"
         timeout: 30
 
+
   # ==========================================================================
   # STAGE 2: Investigation — log intent, run pre-scans
   # ==========================================================================
@@ -343,7 +344,7 @@ stages:
         as: "repo_entry"
         collect: "prescan_results"
         type: "recipe"
-        recipe: "/home/bkrabach/dev/dot-docs/dot-docs/recipes/dotfiles-prescan.yaml"
+        recipe: "dotfiles-prescan.yaml"
         context:
           repo_path: "{{repo_entry.repo_path}}"
         timeout: 600
@@ -353,7 +354,7 @@ stages:
         as: "repo_entry"
         collect: "investigation_results"
         type: "recipe"
-        recipe: "/home/bkrabach/dev/dot-docs/dot-docs/recipes/dotfiles-investigate.yaml"
+        recipe: "dotfiles-investigate.yaml"
         context:
           repo_path: "{{repo_entry.repo_path}}"
           investigation_dir: "{{repo_entry.output_dir}}/.investigation"
@@ -400,7 +401,7 @@ stages:
         as: "repo_entry"
         collect: "synthesis_results"
         type: "recipe"
-        recipe: "/home/bkrabach/dev/dot-docs/dot-docs/recipes/dotfiles-synthesis.yaml"
+        recipe: "dotfiles-synthesis.yaml"
         context:
           investigation_dir: "{{repo_entry.output_dir}}/.investigation"
           repo_path: "{{repo_entry.repo_path}}"
@@ -425,12 +426,21 @@ stages:
           import sys
           from pathlib import Path
 
-          # Add tools directory to path
-          tools_path = Path("/home/bkrabach/dev/dot-docs/dot-docs/tools")
-          if tools_path.exists():
-              sys.path.insert(0, str(tools_path))
+          # Add tools directory to path — mirrors determine-tiers portable pattern
+          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
 
-          from dotfiles_discovery.content_hash import compute_dot_hash, should_update
+          try:
+              from dotfiles_discovery.content_hash import compute_dot_hash, should_update
+          except ImportError:
+              import os
+              tools_candidates = [
+                  Path(os.getcwd()) / "dot-docs" / "tools",
+              ]
+              for candidate in tools_candidates:
+                  if candidate.exists():
+                      sys.path.insert(0, str(candidate))
+                      break
+              from dotfiles_discovery.content_hash import compute_dot_hash, should_update
 
           synthesis_repos = ast.literal_eval("""{{tier_filters.synthesis}}""")
 
@@ -674,7 +684,8 @@ stages:
           import sys
           from pathlib import Path
 
-          sys.path.insert(0, "/home/bkrabach/dev/dot-docs/dot-docs/tools")
+          # Add tools directory to path — mirrors determine-tiers portable pattern
+          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
 
           try:
               import yaml
@@ -683,7 +694,18 @@ stages:
               subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=True)
               import yaml
 
-          from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
+          try:
+              from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
+          except ImportError:
+              import os
+              tools_candidates = [
+                  Path(os.getcwd()) / "dot-docs" / "tools",
+              ]
+              for candidate in tools_candidates:
+                  if candidate.exists():
+                      sys.path.insert(0, str(candidate))
+                      break
+              from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
 
           profile_path = Path("{{profile_path}}")
           dotfiles_root = Path("{{dotfiles_root}}")
