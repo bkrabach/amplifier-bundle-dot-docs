@@ -52,7 +52,7 @@ stages:
       - id: "read-profile"
         type: "bash"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
           import ast
           import sys
@@ -83,7 +83,7 @@ stages:
               "github_handle": github_handle,
               "repo_count": len(repos),
           }))
-          EOF
+          PYEOF
         output: "profile"
         parse_json: true
         timeout: 30
@@ -95,30 +95,14 @@ stages:
       - id: "determine-tiers"
         type: "bash"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
           import ast
           import sys
           from pathlib import Path
 
-          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
-
-          try:
-              from dotfiles_discovery.structural_change import detect_changes
-              from dotfiles_discovery.discovery_metadata import read_last_run, get_force_tier
-          except ImportError:
-              # Try finding tools relative to the working directory
-              import os
-              tools_candidates = [
-                  Path(os.getcwd()) / "dot-docs" / "tools",
-              ]
-              for candidate in tools_candidates:
-                  if candidate.exists():
-                      sys.path.insert(0, str(candidate))
-                      break
-
-              from dotfiles_discovery.structural_change import detect_changes
-              from dotfiles_discovery.discovery_metadata import read_last_run, get_force_tier
+          from dotfiles_discovery.structural_change import detect_changes
+          from dotfiles_discovery.discovery_metadata import read_last_run, get_force_tier
 
           dotfiles_root = Path("{{dotfiles_root}}")
           repos_root = Path("{{repos_root}}")
@@ -192,7 +176,7 @@ stages:
               })
 
           print(json.dumps(tier_plan))
-          EOF
+          PYEOF
         output: "tier_plan"
         parse_json: true
         timeout: 120
@@ -203,7 +187,7 @@ stages:
       - id: "display-plan"
         type: "bash"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
 
           import ast
@@ -261,7 +245,7 @@ stages:
 
           output = "\n".join(lines)
           print(output)
-          EOF
+          PYEOF
         output: "plan_display"
         timeout: 30
 
@@ -280,7 +264,7 @@ stages:
         collect: "processing_results"
         type: "bash"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
 
           import ast
@@ -303,7 +287,7 @@ stages:
           print(f"[{repo}] Tier {tier}: {intent}")
           print(f"  Reason: {reason}")
           print(json.dumps({"repo": repo, "tier": tier, "intent": intent}))
-          EOF
+          PYEOF
         timeout: 600
 
       # ------------------------------------------------------------------------
@@ -321,7 +305,7 @@ stages:
         output: "tier_filters"
         timeout: 15
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json, ast
 
           tier_plan = ast.literal_eval("""{{tier_plan}}""")
@@ -337,7 +321,7 @@ stages:
               "synthesis": synthesis_repos,
               "tier3": tier3_repos,
           }))
-          EOF
+          PYEOF
 
       - id: "prescan-repos"
         foreach: "{{tier_filters.prescan}}"
@@ -420,27 +404,13 @@ stages:
         timeout: 60
         output: "content_hash_results"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
           import ast
           import sys
           from pathlib import Path
 
-          # Add tools directory to path — mirrors determine-tiers portable pattern
-          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
-
-          try:
-              from dotfiles_discovery.content_hash import compute_dot_hash, should_update
-          except ImportError:
-              import os
-              tools_candidates = [
-                  Path(os.getcwd()) / "dot-docs" / "tools",
-              ]
-              for candidate in tools_candidates:
-                  if candidate.exists():
-                      sys.path.insert(0, str(candidate))
-                      break
-              from dotfiles_discovery.content_hash import compute_dot_hash, should_update
+          from dotfiles_discovery.content_hash import compute_dot_hash, should_update
 
           synthesis_repos = ast.literal_eval("""{{tier_filters.synthesis}}""")
 
@@ -482,7 +452,7 @@ stages:
               "no_output_count": len(no_output),
           }
           print(json.dumps(summary))
-          EOF
+          PYEOF
 
       # ------------------------------------------------------------------------
       # Step 3: Run Tier 3 analysis checks (orphan, cycle, diff)
@@ -538,35 +508,19 @@ stages:
         type: "bash"
         on_error: fail
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
           import ast
           import sys
           from datetime import datetime, timezone
           from pathlib import Path
 
-          try:
-              from dotfiles_discovery.discovery_metadata import (
-                  LastRunMetadata,
-                  ManifestMetadata,
-                  write_last_run,
-                  write_manifest,
-              )
-          except ImportError:
-              import os
-              tools_candidates = [
-                  Path(os.getcwd()) / "dot-docs" / "tools",
-              ]
-              for candidate in tools_candidates:
-                  if candidate.exists():
-                      sys.path.insert(0, str(candidate))
-                      break
-              from dotfiles_discovery.discovery_metadata import (
-                  LastRunMetadata,
-                  ManifestMetadata,
-                  write_last_run,
-                  write_manifest,
-              )
+          from dotfiles_discovery.discovery_metadata import (
+              LastRunMetadata,
+              ManifestMetadata,
+              write_last_run,
+              write_manifest,
+          )
 
           tier_plan = ast.literal_eval("""{{tier_plan}}""")
           results = []
@@ -628,7 +582,7 @@ stages:
               "repos": results,
           }
           print(json.dumps(summary, indent=2))
-          EOF
+          PYEOF
         output: "metadata_result"
         timeout: 120
 
@@ -639,7 +593,7 @@ stages:
         type: "bash"
         on_error: continue
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import json
 
           import ast
@@ -664,7 +618,7 @@ stages:
           print("  Metadata written to <output_dir>/.discovery/ for each repo.")
           print("=" * 60)
           print("")
-          EOF
+          PYEOF
         output: "discovery_complete"
         timeout: 30
 
@@ -680,12 +634,9 @@ stages:
         timeout: 30
         output: "reconciliation_result"
         command: |
-          python3 << 'EOF'
+          "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
           import sys
           from pathlib import Path
-
-          # Add tools directory to path — mirrors determine-tiers portable pattern
-          sys.path.insert(0, str(Path("{{dotfiles_root}}").parent / "tools"))
 
           try:
               import yaml
@@ -694,18 +645,7 @@ stages:
               subprocess.run([sys.executable, "-m", "pip", "install", "pyyaml", "-q"], check=True)
               import yaml
 
-          try:
-              from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
-          except ImportError:
-              import os
-              tools_candidates = [
-                  Path(os.getcwd()) / "dot-docs" / "tools",
-              ]
-              for candidate in tools_candidates:
-                  if candidate.exists():
-                      sys.path.insert(0, str(candidate))
-                      break
-              from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
+          from dotfiles_discovery.reconciliation import find_orphaned_dirs, format_reconciliation_warning
 
           profile_path = Path("{{profile_path}}")
           dotfiles_root = Path("{{dotfiles_root}}")
@@ -728,5 +668,5 @@ stages:
               print(warning)
           else:
               print("Reconciliation complete: no orphans found.")
-          EOF
+          PYEOF
 

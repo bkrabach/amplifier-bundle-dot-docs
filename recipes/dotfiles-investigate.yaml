@@ -94,7 +94,7 @@ steps:
       cat > /tmp/dotfiles_topics_$$.json << 'TOPICS_EOF'
       {{topics}}
       TOPICS_EOF
-      python3 << 'EOF'
+      "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
       import json
       import re
       import sys
@@ -151,7 +151,7 @@ steps:
           })
 
       print(json.dumps(enriched))
-      EOF
+      PYEOF
 
   # --------------------------------------------------------------------------
   # Step 4a: Wave 1 — Code Tracers (HOW agents)
@@ -322,7 +322,7 @@ steps:
       cat > /tmp/dotfiles_manifest_recon_$$.json << 'RECON_EOF'
       {{reconciliation}}
       RECON_EOF
-      python3 << 'EOF'
+      "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
       import json, ast, glob, os, subprocess
       from pathlib import Path
 
@@ -377,4 +377,4 @@ steps:
       }
 
       print(json.dumps(manifest, indent=2))
-      EOF
+      PYEOF
