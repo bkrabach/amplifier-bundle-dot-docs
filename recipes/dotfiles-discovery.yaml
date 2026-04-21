@@ -344,7 +344,7 @@ stages:
         as: "repo_entry"
         collect: "prescan_results"
         type: "recipe"
-        recipe: "dotfiles-prescan.yaml"
+        recipe: "@dot-docs:recipes/dotfiles-prescan.yaml"
         context:
           repo_path: "{{repo_entry.repo_path}}"
         timeout: 600
@@ -354,7 +354,7 @@ stages:
         as: "repo_entry"
         collect: "investigation_results"
         type: "recipe"
-        recipe: "dotfiles-investigate.yaml"
+        recipe: "@dot-docs:recipes/dotfiles-investigate.yaml"
         context:
           repo_path: "{{repo_entry.repo_path}}"
           investigation_dir: "{{repo_entry.output_dir}}/.investigation"
@@ -401,7 +401,7 @@ stages:
         as: "repo_entry"
         collect: "synthesis_results"
         type: "recipe"
-        recipe: "dotfiles-synthesis.yaml"
+        recipe: "@dot-docs:recipes/dotfiles-synthesis.yaml"
         context:
           investigation_dir: "{{repo_entry.output_dir}}/.investigation"
           repo_path: "{{repo_entry.repo_path}}"
