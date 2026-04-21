@@ -542,7 +542,7 @@ class TestDiscoveryModuleAvailability:
     def _add_tools_to_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import sys
 
-        tools_dir = str(BUNDLE_ROOT / "tools")
+        tools_dir = str(BUNDLE_ROOT / "src")
         if tools_dir not in sys.path:
             monkeypatch.syspath_prepend(tools_dir)
 

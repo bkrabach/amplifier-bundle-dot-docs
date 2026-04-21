@@ -198,26 +198,11 @@ steps:
     type: "bash"
     command: |
       set -euo pipefail
-      python3 - <<'PYEOF'
+      "${AMPLIFIER_PYTHON:-python3}" - <<'PYEOF'
       import sys
       from pathlib import Path
 
-      # Add tools directory to path for dotfiles_discovery imports
-      for candidate in [
-          Path("{{investigation_dir}}").parent.parent / "dot-docs" / "tools",
-          Path(__file__).parent.parent / "tools" if '__file__' in dir() else None,
-          Path("/home/bkrabach/dev/dot-docs/dot-docs/tools"),
-      ]:
-          if candidate and candidate.exists():
-              sys.path.insert(0, str(candidate))
-              break
-
-      try:
-          from dotfiles_discovery.dot_validation import validate_dot_file, validate_with_dot_graph
-      except ImportError:
-          # Fallback: skip validation if module not available
-          print('{"status": "SKIP", "reason": "dotfiles_discovery module not available", "overview_exists": true}')
-          sys.exit(0)
+      from dotfiles_discovery.dot_validation import validate_dot_file, validate_with_dot_graph
 
       output_dir = Path("{{output_dir}}")
       overview = output_dir / "overview.dot"
