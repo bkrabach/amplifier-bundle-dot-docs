@@ -156,7 +156,11 @@ steps:
       Begin your response with: VERDICT: <PASS|WARN|FAIL>
       Then provide detailed findings for each file.
     output: "review_verdict"
-    timeout: 600
+    # Bumped from 600s after real-world runs timed out reviewing 3 non-trivial
+    # DOT files (~7KB each). 1800s (30 min) is a stopgap — the underlying
+    # question is why the reviewer takes this long on small artifacts.
+    # See follow-up: investigate dot-graph:diagram-reviewer runtime profile.
+    timeout: 1800
 
   # --------------------------------------------------------------------------
   # Step 5: Fix if failed
